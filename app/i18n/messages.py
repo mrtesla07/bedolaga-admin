@@ -1,4 +1,4 @@
-"""Simple dictionary-based translations for the admin interface."""
+﻿"""Simple dictionary-based translations for the admin interface."""
 
 from __future__ import annotations
 
@@ -27,6 +27,39 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "button.save": "Save",
         "button.cancel": "Cancel",
         "button.delete": "Delete",
+        "list.export": "Export",
+        "list.actions_button": "Actions",
+        "list.delete_selected": "Delete selected items",
+        "list.new": "+ New {name}",
+        "list.search_placeholder": "Search: {placeholder}",
+        "list.search_button": "Search",
+        "list.search_reset": "Clear",
+        "list.select_all": "Select all",
+        "list.select_item": "Select item",
+        "list.view": "View",
+        "list.edit": "Edit",
+        "list.delete": "Delete",
+        "list.prev": "Previous",
+        "list.next": "Next",
+        "list.show": "Show",
+        "list.per_page": "{size} / page",
+        "list.pagination_info": "Showing {start}–{end} of {total} items",
+        "form.error": "There was an error",
+        "create.title": "New {name}",
+        "create.save_continue": "Save and continue editing",
+        "create.save_add": "Save and add another",
+        "create.save_new": "Save as new",
+        "edit.title": "Edit {name}",
+        "details.column": "Column",
+        "details.value": "Value",
+        "details.back": "Go back",
+        "login.title": "Login to {title}",
+        "login.username": "Username",
+        "login.password": "Password",
+        "login.submit": "Login",
+        "modal.confirm_title": "Please confirm",
+        "modal.delete_question": "Delete {item}?",
+        "modal.confirm": "Confirm",
     },
     "ru": {
         "nav.dashboard": "Обзор",
@@ -44,6 +77,39 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "button.save": "Сохранить",
         "button.cancel": "Отмена",
         "button.delete": "Удалить",
+        "list.export": "Экспорт",
+        "list.actions_button": "Действия",
+        "list.delete_selected": "Удалить выбранные",
+        "list.new": "+ Новый {name}",
+        "list.search_placeholder": "Поиск: {placeholder}",
+        "list.search_button": "Найти",
+        "list.search_reset": "Очистить",
+        "list.select_all": "Выбрать все",
+        "list.select_item": "Выбрать запись",
+        "list.view": "Просмотр",
+        "list.edit": "Редактировать",
+        "list.delete": "Удалить",
+        "list.prev": "Назад",
+        "list.next": "Далее",
+        "list.show": "Показать",
+        "list.per_page": "{size} / на страницу",
+        "list.pagination_info": "Показаны {start}–{end} из {total} записей",
+        "form.error": "Возникла ошибка",
+        "create.title": "Создание {name}",
+        "create.save_continue": "Сохранить и продолжить",
+        "create.save_add": "Сохранить и создать ещё",
+        "create.save_new": "Сохранить как новый",
+        "edit.title": "Редактирование {name}",
+        "details.column": "Поле",
+        "details.value": "Значение",
+        "details.back": "Назад к списку",
+        "login.title": "Вход в {title}",
+        "login.username": "Имя пользователя",
+        "login.password": "Пароль",
+        "login.submit": "Войти",
+        "modal.confirm_title": "Подтвердите действие",
+        "modal.delete_question": "Удалить {item}?",
+        "modal.confirm": "Подтвердить",
     },
 }
 
@@ -84,7 +150,6 @@ def get_locale(request: Request | None) -> str:
 
 def resolve_locale_from_request(request: Request) -> str:
     """Determine locale from query, cookies or Accept-Language header."""
-    # explicit query parameter has the highest priority
     lang = request.query_params.get("lang") if hasattr(request, "query_params") else None
     if lang:
         return _resolve_locale(lang)
