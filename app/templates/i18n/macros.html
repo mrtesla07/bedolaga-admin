@@ -1,2 +1,7 @@
-{% macro tr(key) %}{{ translate(key) }}{% endmacro %}
-{% macro trf(key, **kwargs) %}{{ translate(key, **kwargs) }}{% endmacro %}
+{% macro tr(key) -%}
+{{ translate(key, locale=get_locale(request)) }}
+{%- endmacro %}
+
+{% macro trf(key, **kwargs) -%}
+{{ translate(key, locale=get_locale(request), **kwargs) }}
+{%- endmacro %}

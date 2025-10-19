@@ -1,4 +1,4 @@
-﻿"""РўРѕС‡РєР° РІС…РѕРґР° FastAPI-РїСЂРёР»РѕР¶РµРЅРёСЏ."""
+"""FastAPI application entrypoint."""
 
 from __future__ import annotations
 
@@ -32,7 +32,8 @@ from app.models import AdminSecuritySettings, AdminUser, Subscription, UserStatu
 from app.services.audit import log_admin_action
 from app.services.rate_limiter import RateLimitExceeded, RateLimiter
 from app.services.roles import ensure_default_roles
-from app.i18n import translate
+from app.i18n import translate, get_locale
+from app.middlewares import LocaleMiddleware
 from app.services.webapi import (
     WebAPIConfigurationError,
     WebAPIRequestError,
@@ -46,10 +47,12 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 app = FastAPI(title=settings.app_name, debug=settings.debug)
+app.add_middleware(LocaleMiddleware)
 app.state.admin_exists = False
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.globals['translate'] = translate
+templates.env.globals['get_locale'] = get_locale
 
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
@@ -80,21 +83,21 @@ for view in admin_views:
 ADMIN_ACTIONS: list[dict[str, Any]] = [
     {
         "key": "extend_subscription",
-        "title": "РџСЂРѕРґР»РёС‚СЊ РїРѕРґРїРёСЃРєСѓ",
-        "description": "РџСЂРѕРґР»РµРІР°РµС‚ С‚РµРєСѓС‰СѓСЋ РїРѕРґРїРёСЃРєСѓ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ С‡РµСЂРµР· web API.",
+        "title": "Р СџРЎР‚Р С•Р Т‘Р В»Р С‘РЎвЂљРЎРЉ Р С—Р С•Р Т‘Р С—Р С‘РЎРѓР С”РЎС“",
+        "description": "Р СџРЎР‚Р С•Р Т‘Р В»Р ВµР Р†Р В°Р ВµРЎвЂљ РЎвЂљР ВµР С”РЎС“РЎвЂ°РЎС“РЎР‹ Р С—Р С•Р Т‘Р С—Р С‘РЎРѓР С”РЎС“ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ РЎвЂЎР ВµРЎР‚Р ВµР В· web API.",
         "permission": PERM_ACTION_EXTEND,
         "fields": [
             {
                 "name": "user_id",
-                "label": "ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
+                "label": "ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ",
                 "type": "number",
                 "required": True,
                 "min": 1,
-                "placeholder": "РќР°РїСЂРёРјРµСЂ, 102",
+                "placeholder": "Р СњР В°Р С—РЎР‚Р С‘Р СР ВµРЎР‚, 102",
             },
             {
                 "name": "days",
-                "label": "РљРѕР»РёС‡РµСЃС‚РІРѕ РґРЅРµР№",
+                "label": "Р С™Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• Р Т‘Р Р…Р ВµР в„–",
                 "type": "number",
                 "required": True,
                 "min": 1,
@@ -105,21 +108,21 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "key": "recharge_balance",
-        "title": "РќР°С‡РёСЃР»РёС‚СЊ Р±Р°Р»Р°РЅСЃ",
-        "description": "РќР°С‡РёСЃР»СЏРµС‚ РёР»Рё СЃРїРёСЃС‹РІР°РµС‚ Р±Р°Р»Р°РЅСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ СЃ РѕРїС†РёРѕРЅР°Р»СЊРЅРѕР№ Р·Р°РїРёСЃСЊСЋ РІ С‚СЂР°РЅР·Р°РєС†РёРё.",
+        "title": "Р СњР В°РЎвЂЎР С‘РЎРѓР В»Р С‘РЎвЂљРЎРЉ Р В±Р В°Р В»Р В°Р Р…РЎРѓ",
+        "description": "Р СњР В°РЎвЂЎР С‘РЎРѓР В»РЎРЏР ВµРЎвЂљ Р С‘Р В»Р С‘ РЎРѓР С—Р С‘РЎРѓРЎвЂ№Р Р†Р В°Р ВµРЎвЂљ Р В±Р В°Р В»Р В°Р Р…РЎРѓ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ РЎРѓ Р С•Р С—РЎвЂ Р С‘Р С•Р Р…Р В°Р В»РЎРЉР Р…Р С•Р в„– Р В·Р В°Р С—Р С‘РЎРѓРЎРЉРЎР‹ Р Р† РЎвЂљРЎР‚Р В°Р Р…Р В·Р В°Р С”РЎвЂ Р С‘Р С‘.",
         "permission": PERM_ACTION_BALANCE,
         "fields": [
             {
                 "name": "user_id",
-                "label": "ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
+                "label": "ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ",
                 "type": "number",
                 "required": True,
                 "min": 1,
-                "placeholder": "ID РІ С‚Р°Р±Р»РёС†Рµ users",
+                "placeholder": "ID Р Р† РЎвЂљР В°Р В±Р В»Р С‘РЎвЂ Р Вµ users",
             },
             {
                 "name": "amount_rub",
-                "label": "РЎСѓРјРјР°, в‚Ѕ",
+                "label": "Р РЋРЎС“Р СР СР В°, РІвЂљР…",
                 "type": "number",
                 "step": "0.01",
                 "required": True,
@@ -127,14 +130,14 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
             },
             {
                 "name": "description",
-                "label": "РљРѕРјРјРµРЅС‚Р°СЂРёР№",
+                "label": "Р С™Р С•Р СР СР ВµР Р…РЎвЂљР В°РЎР‚Р С‘Р в„–",
                 "type": "textarea",
                 "rows": 3,
-                "placeholder": "РџСЂРёС‡РёРЅР° РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё, РїРѕСЏРІРёС‚СЃСЏ РІ РѕРїРёСЃР°РЅРёРё С‚СЂР°РЅР·Р°РєС†РёРё",
+                "placeholder": "Р СџРЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В° Р С”Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р С”Р С‘, Р С—Р С•РЎРЏР Р†Р С‘РЎвЂљРЎРѓРЎРЏ Р Р† Р С•Р С—Р С‘РЎРѓР В°Р Р…Р С‘Р С‘ РЎвЂљРЎР‚Р В°Р Р…Р В·Р В°Р С”РЎвЂ Р С‘Р С‘",
             },
             {
                 "name": "create_transaction",
-                "label": "РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёРё С‚СЂР°РЅР·Р°РєС†РёР№",
+                "label": "Р РЋР С•Р В·Р Т‘Р В°РЎвЂљРЎРЉ Р В·Р В°Р С—Р С‘РЎРѓРЎРЉ Р Р† Р С‘РЎРѓРЎвЂљР С•РЎР‚Р С‘Р С‘ РЎвЂљРЎР‚Р В°Р Р…Р В·Р В°Р С”РЎвЂ Р С‘Р в„–",
                 "type": "checkbox",
                 "default": True,
             },
@@ -142,46 +145,46 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "key": "block_user",
-        "title": "РћР±РЅРѕРІРёС‚СЊ СЃС‚Р°С‚СѓСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
-        "description": "РџРµСЂРµРєР»СЋС‡Р°РµС‚ СЃС‚Р°С‚СѓСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РјРµР¶РґСѓ Р°РєС‚РёРІРЅС‹Рј Рё Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРЅС‹Рј.",
+        "title": "Р С›Р В±Р Р…Р С•Р Р†Р С‘РЎвЂљРЎРЉ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ",
+        "description": "Р СџР ВµРЎР‚Р ВµР С”Р В»РЎР‹РЎвЂЎР В°Р ВµРЎвЂљ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ Р СР ВµР В¶Р Т‘РЎС“ Р В°Р С”РЎвЂљР С‘Р Р†Р Р…РЎвЂ№Р С Р С‘ Р В·Р В°Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р В°Р Р…Р Р…РЎвЂ№Р С.",
         "permission": PERM_ACTION_BLOCK,
         "fields": [
             {
                 "name": "user_id",
-                "label": "ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
+                "label": "ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ",
                 "type": "number",
                 "required": True,
                 "min": 1,
-                "placeholder": "ID РІ С‚Р°Р±Р»РёС†Рµ users",
+                "placeholder": "ID Р Р† РЎвЂљР В°Р В±Р В»Р С‘РЎвЂ Р Вµ users",
             },
             {
                 "name": "mode",
-                "label": "Р”РµР№СЃС‚РІРёРµ",
+                "label": "Р вЂќР ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ",
                 "type": "select",
                 "default": "block",
                 "options": [
-                    {"value": "block", "label": "Р—Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ"},
-                    {"value": "unblock", "label": "Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ"},
+                    {"value": "block", "label": "Р вЂ”Р В°Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ"},
+                    {"value": "unblock", "label": "Р В Р В°Р В·Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ"},
                 ],
             },
         ],
     },
     {
         "key": "sync_access",
-        "title": "РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ СЃ RemnaWave",
-        "description": "Р—Р°РїСѓСЃРєР°РµС‚ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЋ РґР°РЅРЅС‹С… РјРµР¶РґСѓ Р±РѕС‚РѕРј Рё RemnaWave РїР°РЅРµР»СЊСЋ.",
+        "title": "Р РЋР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р В°РЎвЂ Р С‘РЎРЏ РЎРѓ RemnaWave",
+        "description": "Р вЂ”Р В°Р С—РЎС“РЎРѓР С”Р В°Р ВµРЎвЂљ РЎРѓР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р В°РЎвЂ Р С‘РЎР‹ Р Т‘Р В°Р Р…Р Р…РЎвЂ№РЎвЂ¦ Р СР ВµР В¶Р Т‘РЎС“ Р В±Р С•РЎвЂљР С•Р С Р С‘ RemnaWave Р С—Р В°Р Р…Р ВµР В»РЎРЉРЎР‹.",
         "permission": PERM_ACTION_SYNC,
         "fields": [
             {
                 "name": "mode",
-                "label": "РћРїРµСЂР°С†РёСЏ",
+                "label": "Р С›Р С—Р ВµРЎР‚Р В°РЎвЂ Р С‘РЎРЏ",
                 "type": "select",
                 "default": "to_panel",
                 "options": [
-                    {"value": "to_panel", "label": "Р’С‹РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ РІ РїР°РЅРµР»СЊ"},
-                    {"value": "from_panel_all", "label": "Р—Р°РіСЂСѓР·РёС‚СЊ РёР· РїР°РЅРµР»Рё (РІСЃРµ РїРѕР»СЊР·РѕРІР°С‚РµР»Рё)"},
-                    {"value": "from_panel_update", "label": "Р—Р°РіСЂСѓР·РёС‚СЊ РёР· РїР°РЅРµР»Рё (С‚РѕР»СЊРєРѕ РѕР±РЅРѕРІР»РµРЅРёСЏ)"},
-                    {"value": "sync_statuses", "label": "РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СѓСЃС‹ РїРѕРґРїРёСЃРѕРє"},
+                    {"value": "to_panel", "label": "Р вЂ™РЎвЂ№Р С–РЎР‚РЎС“Р В·Р С‘РЎвЂљРЎРЉ Р Т‘Р В°Р Р…Р Р…РЎвЂ№Р Вµ Р Р† Р С—Р В°Р Р…Р ВµР В»РЎРЉ"},
+                    {"value": "from_panel_all", "label": "Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С‘РЎвЂљРЎРЉ Р С‘Р В· Р С—Р В°Р Р…Р ВµР В»Р С‘ (Р Р†РЎРѓР Вµ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»Р С‘)"},
+                    {"value": "from_panel_update", "label": "Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С‘РЎвЂљРЎРЉ Р С‘Р В· Р С—Р В°Р Р…Р ВµР В»Р С‘ (РЎвЂљР С•Р В»РЎРЉР С”Р С• Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ)"},
+                    {"value": "sync_statuses", "label": "Р РЋР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓРЎвЂ№ Р С—Р С•Р Т‘Р С—Р С‘РЎРѓР С•Р С”"},
                 ],
             },
         ],
@@ -189,7 +192,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
 ]
 
 class ActionValidationError(ValueError):
-    """РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё РґР°РЅРЅС‹С… РґРµР№СЃС‚РІРёСЏ."""
+    """Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р Р†Р В°Р В»Р С‘Р Т‘Р В°РЎвЂ Р С‘Р С‘ Р Т‘Р В°Р Р…Р Р…РЎвЂ№РЎвЂ¦ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎРЏ."""
 
 
 def _get_action_meta(action_key: str) -> dict[str, Any] | None:
@@ -198,13 +201,13 @@ def _get_action_meta(action_key: str) -> dict[str, Any] | None:
 
 def _require_int(value: str | None, *, label: str, min_value: int | None = None) -> int:
     if value is None or str(value).strip() == "":
-        raise ActionValidationError(f"{label}: СѓРєР°Р¶РёС‚Рµ Р·РЅР°С‡РµРЅРёРµ.")
+        raise ActionValidationError(f"{label}: РЎС“Р С”Р В°Р В¶Р С‘РЎвЂљР Вµ Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ.")
     try:
         number = int(str(value).strip())
     except ValueError as exc:
-        raise ActionValidationError(f"{label}: РѕР¶РёРґР°РµС‚СЃСЏ С†РµР»РѕРµ С‡РёСЃР»Рѕ.") from exc
+        raise ActionValidationError(f"{label}: Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљРЎРѓРЎРЏ РЎвЂ Р ВµР В»Р С•Р Вµ РЎвЂЎР С‘РЎРѓР В»Р С•.") from exc
     if min_value is not None and number < min_value:
-        raise ActionValidationError(f"{label}: Р·РЅР°С‡РµРЅРёРµ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РЅРµ РјРµРЅСЊС€Рµ {min_value}.")
+        raise ActionValidationError(f"{label}: Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ Р Т‘Р С•Р В»Р В¶Р Р…Р С• Р В±РЎвЂ№РЎвЂљРЎРЉ Р Р…Р Вµ Р СР ВµР Р…РЎРЉРЎв‚¬Р Вµ {min_value}.")
     return number
 
 
@@ -218,13 +221,13 @@ def _format_sync_message(response: dict[str, Any], default: str) -> str:
 
 
 def _get_permissions(request: Request) -> set[str]:
-    """Р’РѕР·РІСЂР°С‰Р°РµС‚ РјРЅРѕР¶РµСЃС‚РІРѕ СЂР°Р·СЂРµС€РµРЅРёР№ С‚РµРєСѓС‰РµРіРѕ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°."""
+    """Р вЂ™Р С•Р В·Р Р†РЎР‚Р В°РЎвЂ°Р В°Р ВµРЎвЂљ Р СР Р…Р С•Р В¶Р ВµРЎРѓРЎвЂљР Р†Р С• РЎР‚Р В°Р В·РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘Р в„– РЎвЂљР ВµР С”РЎС“РЎвЂ°Р ВµР С–Р С• Р В°Р Т‘Р СР С‘Р Р…Р С‘РЎРѓРЎвЂљРЎР‚Р В°РЎвЂљР С•РЎР‚Р В°."""
     perms = getattr(request.state, "admin_permissions", set())
     return set(perms)
 
 
 def _build_allowed_actions(permissions: set[str]) -> dict[str, bool]:
-    """РЎРѕР·РґР°С‘С‚ РєР°СЂС‚Сѓ РґРѕСЃС‚СѓРїРЅС‹С… РґРµР№СЃС‚РІРёР№."""
+    """Р РЋР С•Р В·Р Т‘Р В°РЎвЂРЎвЂљ Р С”Р В°РЎР‚РЎвЂљРЎС“ Р Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р Р…РЎвЂ№РЎвЂ¦ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„–."""
     allowed: dict[str, bool] = {}
     for action in ADMIN_ACTIONS:
         required = action.get("permission")
@@ -254,15 +257,15 @@ async def _get_security_settings() -> AdminSecuritySettings:
 
 def _parse_amount_rubles(value: str | None) -> tuple[int, Decimal]:
     if value is None or not str(value).strip():
-        raise ActionValidationError("РЎСѓРјРјР°: СѓРєР°Р¶РёС‚Рµ Р·РЅР°С‡РµРЅРёРµ.")
+        raise ActionValidationError("Р РЋРЎС“Р СР СР В°: РЎС“Р С”Р В°Р В¶Р С‘РЎвЂљР Вµ Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ.")
     normalized = str(value).replace(",", ".").strip()
     try:
         amount = Decimal(normalized)
     except (InvalidOperation, ValueError) as exc:
-        raise ActionValidationError("РЎСѓРјРјР°: РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ С„РѕСЂРјР°С‚.") from exc
+        raise ActionValidationError("Р РЋРЎС“Р СР СР В°: Р Р…Р ВµР С”Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР Р…РЎвЂ№Р в„– РЎвЂћР С•РЎР‚Р СР В°РЎвЂљ.") from exc
     amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     if amount == 0:
-        raise ActionValidationError("РЎСѓРјРјР° РґРѕР»Р¶РЅР° РѕС‚Р»РёС‡Р°С‚СЊСЃСЏ РѕС‚ РЅСѓР»СЏ.")
+        raise ActionValidationError("Р РЋРЎС“Р СР СР В° Р Т‘Р С•Р В»Р В¶Р Р…Р В° Р С•РЎвЂљР В»Р С‘РЎвЂЎР В°РЎвЂљРЎРЉРЎРѓРЎРЏ Р С•РЎвЂљ Р Р…РЎС“Р В»РЎРЏ.")
     kopeks = int(amount * 100)
     return kopeks, amount
 
@@ -281,26 +284,26 @@ async def _execute_action(
     client = get_webapi_client()
 
     if action_key == "extend_subscription":
-        user_id = _require_int(form.get("user_id"), label="ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ", min_value=1)
-        days = _require_int(form.get("days"), label="РљРѕР»РёС‡РµСЃС‚РІРѕ РґРЅРµР№", min_value=1)
+        user_id = _require_int(form.get("user_id"), label="ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ", min_value=1)
+        days = _require_int(form.get("days"), label="Р С™Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• Р Т‘Р Р…Р ВµР в„–", min_value=1)
 
         async with AsyncSessionFactory() as session:
             result = await session.execute(select(Subscription).where(Subscription.user_id == user_id))
             subscription = result.scalar_one_or_none()
 
         if not subscription:
-            raise ActionValidationError("РЈ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РЅРµС‚ Р°РєС‚РёРІРЅРѕР№ РїРѕРґРїРёСЃРєРё.")
+            raise ActionValidationError("Р Р€ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ Р Р…Р ВµРЎвЂљ Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– Р С—Р С•Р Т‘Р С—Р С‘РЎРѓР С”Р С‘.")
 
         response = await client.extend_subscription(subscription.id, days)
         end_date = response.get("end_date")
 
-        message = f"РџРѕРґРїРёСЃРєР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ {user_id} РїСЂРѕРґР»РµРЅР° РЅР° {days} РґРЅ."
+        message = f"Р СџР С•Р Т‘Р С—Р С‘РЎРѓР С”Р В° Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ {user_id} Р С—РЎР‚Р С•Р Т‘Р В»Р ВµР Р…Р В° Р Р…Р В° {days} Р Т‘Р Р…."
         if end_date:
-            message += f" РќРѕРІР°СЏ РґР°С‚Р° РѕРєРѕРЅС‡Р°РЅРёСЏ: {end_date}."
+            message += f" Р СњР С•Р Р†Р В°РЎРЏ Р Т‘Р В°РЎвЂљР В° Р С•Р С”Р С•Р Р…РЎвЂЎР В°Р Р…Р С‘РЎРЏ: {end_date}."
 
         return {
             "status": "success",
-            "title": "РџРѕРґРїРёСЃРєР° РїСЂРѕРґР»РµРЅР°",
+            "title": "Р СџР С•Р Т‘Р С—Р С‘РЎРѓР С”Р В° Р С—РЎР‚Р С•Р Т‘Р В»Р ВµР Р…Р В°",
             "message": message,
             "response": response,
             "_audit": {
@@ -314,9 +317,9 @@ async def _execute_action(
         }
 
     if action_key == "recharge_balance":
-        user_id = _require_int(form.get("user_id"), label="ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ", min_value=1)
+        user_id = _require_int(form.get("user_id"), label="ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ", min_value=1)
         amount_kopeks, amount = _parse_amount_rubles(form.get("amount_rub"))
-        description = (form.get("description") or "РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° С‡РµСЂРµР· Р°РґРјРёРЅРєСѓ").strip()
+        description = (form.get("description") or "Р С™Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р С”Р В° РЎвЂЎР ВµРЎР‚Р ВµР В· Р В°Р Т‘Р СР С‘Р Р…Р С”РЎС“").strip()
         create_transaction = _is_checked(form.get("create_transaction"))
 
         amount_abs = abs(amount)
@@ -326,7 +329,7 @@ async def _execute_action(
 
         if hard_limit > 0 and amount_abs > hard_limit:
             raise ActionValidationError(
-                f"РЎСѓРјРјР° {amount_abs:.2f} в‚Ѕ РїСЂРµРІС‹С€Р°РµС‚ Р¶С‘СЃС‚РєРёР№ Р»РёРјРёС‚ {hard_limit:.2f} в‚Ѕ."
+                f"Р РЋРЎС“Р СР СР В° {amount_abs:.2f} РІвЂљР… Р С—РЎР‚Р ВµР Р†РЎвЂ№РЎв‚¬Р В°Р ВµРЎвЂљ Р В¶РЎвЂРЎРѓРЎвЂљР С”Р С‘Р в„– Р В»Р С‘Р СР С‘РЎвЂљ {hard_limit:.2f} РІвЂљР…."
             )
 
         if (
@@ -336,7 +339,7 @@ async def _execute_action(
             and not confirmation_checked
         ):
             raise ActionValidationError(
-                "РџРѕРґС‚РІРµСЂРґРёС‚Рµ РІС‹РїРѕР»РЅРµРЅРёРµ РѕРїРµСЂР°С†РёРё, РѕС‚РјРµС‚РёРІ С‡РµРєР±РѕРєСЃ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ."
+                "Р СџР С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р Т‘Р С‘РЎвЂљР Вµ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…Р С‘Р Вµ Р С•Р С—Р ВµРЎР‚Р В°РЎвЂ Р С‘Р С‘, Р С•РЎвЂљР СР ВµРЎвЂљР С‘Р Р† РЎвЂЎР ВµР С”Р В±Р С•Р С”РЎРѓ Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р…Р С‘РЎРЏ."
             )
 
         response = await client.update_balance(
@@ -353,13 +356,13 @@ async def _execute_action(
             except (InvalidOperation, TypeError):
                 balance_rubles = None
 
-        message = f"Р‘Р°Р»Р°РЅСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ {user_id} СЃРєРѕСЂСЂРµРєС‚РёСЂРѕРІР°РЅ РЅР° {amount:+.2f} в‚Ѕ."
+        message = f"Р вЂР В°Р В»Р В°Р Р…РЎРѓ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ {user_id} РЎРѓР С”Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р… Р Р…Р В° {amount:+.2f} РІвЂљР…."
         if balance_rubles is not None:
-            message += f" РўРµРєСѓС‰РёР№ Р±Р°Р»Р°РЅСЃ: {Decimal(str(balance_rubles)):.2f} в‚Ѕ."
+            message += f" Р СћР ВµР С”РЎС“РЎвЂ°Р С‘Р в„– Р В±Р В°Р В»Р В°Р Р…РЎРѓ: {Decimal(str(balance_rubles)):.2f} РІвЂљР…."
 
         return {
             "status": "success",
-            "title": "Р‘Р°Р»Р°РЅСЃ РѕР±РЅРѕРІР»С‘РЅ",
+            "title": "Р вЂР В°Р В»Р В°Р Р…РЎРѓ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р…",
             "message": message,
             "response": response,
             "_audit": {
@@ -383,28 +386,28 @@ async def _execute_action(
         }
 
     if action_key == "block_user":
-        user_id = _require_int(form.get("user_id"), label="ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ", min_value=1)
+        user_id = _require_int(form.get("user_id"), label="ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ", min_value=1)
         mode = str(form.get("mode") or "block").lower()
         if mode not in {"block", "unblock"}:
-            raise ActionValidationError("Р’С‹Р±РµСЂРёС‚Рµ РєРѕСЂСЂРµРєС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ РґР»СЏ РёР·РјРµРЅРµРЅРёСЏ СЃС‚Р°С‚СѓСЃР°.")
+            raise ActionValidationError("Р вЂ™РЎвЂ№Р В±Р ВµРЎР‚Р С‘РЎвЂљР Вµ Р С”Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ Р Т‘Р В»РЎРЏ Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘РЎРЏ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓР В°.")
 
         confirmation_checked = _is_checked(form.get("confirm_block"))
         if security_settings.require_block_confirmation and not confirmation_checked:
-            raise ActionValidationError("РџРѕРґС‚РІРµСЂРґРёС‚Рµ Р±Р»РѕРєРёСЂРѕРІРєСѓ, РѕС‚РјРµС‚РёРІ С‡РµРєР±РѕРєСЃ.")
+            raise ActionValidationError("Р СџР С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р Т‘Р С‘РЎвЂљР Вµ Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р С”РЎС“, Р С•РЎвЂљР СР ВµРЎвЂљР С‘Р Р† РЎвЂЎР ВµР С”Р В±Р С•Р С”РЎРѓ.")
 
         status_value = UserStatus.BLOCKED.value if mode == "block" else UserStatus.ACTIVE.value
         response = await client.update_user_status(user_id, status_value)
         new_status = response.get("status", status_value)
 
-        action_text = "Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ" if mode == "block" else "СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
+        action_text = "Р В·Р В°Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р В°Р Р…" if mode == "block" else "РЎР‚Р В°Р В·Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р В°Р Р…"
         message = (
-            f"РЎС‚Р°С‚СѓСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ {user_id} РѕР±РЅРѕРІР»С‘РЅ ({new_status}). "
-            f"РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ {action_text}."
+            f"Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ {user_id} Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р… ({new_status}). "
+            f"Р СџР С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЉ {action_text}."
         )
 
         return {
             "status": "success",
-            "title": "РЎС‚Р°С‚СѓСЃ РѕР±РЅРѕРІР»С‘РЅ",
+            "title": "Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р…",
             "message": message,
             "response": response,
             "_audit": {
@@ -421,22 +424,22 @@ async def _execute_action(
         mode = str(form.get("mode") or "to_panel").lower()
         if mode == "to_panel":
             response = await client.sync_to_panel()
-            message = _format_sync_message(response, "Р’С‹РіСЂСѓР·РєР° РґР°РЅРЅС‹С… РІ RemnaWave РІС‹РїРѕР»РЅРµРЅР°.")
+            message = _format_sync_message(response, "Р вЂ™РЎвЂ№Р С–РЎР‚РЎС“Р В·Р С”Р В° Р Т‘Р В°Р Р…Р Р…РЎвЂ№РЎвЂ¦ Р Р† RemnaWave Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…Р В°.")
         elif mode == "from_panel_all":
             response = await client.sync_from_panel("all")
-            message = _format_sync_message(response, "Р—Р°РіСЂСѓР·РєР° РІСЃРµС… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РёР· RemnaWave Р·Р°РІРµСЂС€РµРЅР°.")
+            message = _format_sync_message(response, "Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С”Р В° Р Р†РЎРѓР ВµРЎвЂ¦ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»Р ВµР в„– Р С‘Р В· RemnaWave Р В·Р В°Р Р†Р ВµРЎР‚РЎв‚¬Р ВµР Р…Р В°.")
         elif mode == "from_panel_update":
             response = await client.sync_from_panel("update_only")
-            message = _format_sync_message(response, "РџРѕР»СѓС‡РµРЅС‹ РѕР±РЅРѕРІР»РµРЅРёСЏ РёР· RemnaWave.")
+            message = _format_sync_message(response, "Р СџР С•Р В»РЎС“РЎвЂЎР ВµР Р…РЎвЂ№ Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ Р С‘Р В· RemnaWave.")
         elif mode == "sync_statuses":
             response = await client.sync_subscription_statuses()
-            message = _format_sync_message(response, "РЎС‚Р°С‚СѓСЃС‹ РїРѕРґРїРёСЃРѕРє СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅС‹.")
+            message = _format_sync_message(response, "Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓРЎвЂ№ Р С—Р С•Р Т‘Р С—Р С‘РЎРѓР С•Р С” РЎРѓР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р С‘РЎР‚Р С•Р Р†Р В°Р Р…РЎвЂ№.")
         else:
-            raise ActionValidationError("РќРµРёР·РІРµСЃС‚РЅС‹Р№ СЂРµР¶РёРј СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё.")
+            raise ActionValidationError("Р СњР ВµР С‘Р В·Р Р†Р ВµРЎРѓРЎвЂљР Р…РЎвЂ№Р в„– РЎР‚Р ВµР В¶Р С‘Р С РЎРѓР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р В°РЎвЂ Р С‘Р С‘.")
 
         return {
             "status": "success",
-            "title": "РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ Р·Р°РїСѓС‰РµРЅР°",
+            "title": "Р РЋР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р В°РЎвЂ Р С‘РЎРЏ Р В·Р В°Р С—РЎС“РЎвЂ°Р ВµР Р…Р В°",
             "message": message,
             "response": response,
             "_audit": {
@@ -449,7 +452,7 @@ async def _execute_action(
             },
         }
 
-    raise ActionValidationError("РќРµРёР·РІРµСЃС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ.")
+    raise ActionValidationError("Р СњР ВµР С‘Р В·Р Р†Р ВµРЎРѓРЎвЂљР Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ.")
 
 
 
@@ -458,7 +461,7 @@ async def admin_actions_page(
     request: Request,
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    """РЎС‚СЂР°РЅРёС†Р° РґРµР№СЃС‚РІРёР№ web API."""
+    """Р РЋРЎвЂљРЎР‚Р В°Р Р…Р С‘РЎвЂ Р В° Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„– web API."""
     await _ensure_security_settings()
     permissions = _get_permissions(request)
     security_settings = await _get_security_settings()
@@ -486,7 +489,7 @@ async def admin_actions_submit(
     request: Request,
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    """РћР±СЂР°Р±Р°С‚С‹РІР°РµС‚ Р·Р°РїСѓСЃРє РґРµР№СЃС‚РІРёР№ web API."""
+    """Р С›Р В±РЎР‚Р В°Р В±Р В°РЎвЂљРЎвЂ№Р Р†Р В°Р ВµРЎвЂљ Р В·Р В°Р С—РЎС“РЎРѓР С” Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„– web API."""
     await _ensure_security_settings()
     form = await request.form()
     action_key = str(form.get("action") or "")
@@ -525,21 +528,21 @@ async def admin_actions_submit(
     if not action_meta:
         result = {
             "status": "error",
-            "title": "РќРµРёР·РІРµСЃС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ",
-            "message": "Р’С‹Р±СЂР°РЅРЅРѕРµ РґРµР№СЃС‚РІРёРµ РЅРµ СЂР°СЃРїРѕР·РЅР°РЅРѕ. РћР±РЅРѕРІРёС‚Рµ СЃС‚СЂР°РЅРёС†Сѓ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.",
+            "title": "Р СњР ВµР С‘Р В·Р Р†Р ВµРЎРѓРЎвЂљР Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ",
+            "message": "Р вЂ™РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ Р Р…Р Вµ РЎР‚Р В°РЎРѓР С—Р С•Р В·Р Р…Р В°Р Р…Р С•. Р С›Р В±Р Р…Р С•Р Р†Р С‘РЎвЂљР Вµ РЎРѓРЎвЂљРЎР‚Р В°Р Р…Р С‘РЎвЂ РЎС“ Р С‘ Р С—Р С•Р С—РЎР‚Р С•Р В±РЎС“Р в„–РЎвЂљР Вµ РЎРѓР Р…Р С•Р Р†Р В°.",
         }
     elif action_meta.get("permission") and action_meta["permission"] not in permissions:
         result = {
             "status": "error",
-            "title": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ",
-            "message": "РЈ РІР°СЃ РЅРµС‚ РїСЂР°РІ РЅР° РІС‹РїРѕР»РЅРµРЅРёРµ СЌС‚РѕРіРѕ РґРµР№СЃС‚РІРёСЏ.",
+            "title": "Р СњР ВµР Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• Р С—РЎР‚Р В°Р Р†",
+            "message": "Р Р€ Р Р†Р В°РЎРѓ Р Р…Р ВµРЎвЂљ Р С—РЎР‚Р В°Р Р† Р Р…Р В° Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…Р С‘Р Вµ РЎРЊРЎвЂљР С•Р С–Р С• Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎРЏ.",
         }
         audit_meta = {"payload": {"form": form_values.get(action_key, {}), "reason": "permission_denied"}}
     elif not api_configured:
         result = {
             "status": "error",
-            "title": "Web API РЅРµ РЅР°СЃС‚СЂРѕРµРЅРѕ",
-            "message": "РЈРєР°Р¶РёС‚Рµ WEBAPI_BASE_URL Рё WEBAPI_API_KEY РІ .env, Р·Р°С‚РµРј РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚Рµ РїСЂРёР»РѕР¶РµРЅРёРµ.",
+            "title": "Web API Р Р…Р Вµ Р Р…Р В°РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р…Р С•",
+            "message": "Р Р€Р С”Р В°Р В¶Р С‘РЎвЂљР Вµ WEBAPI_BASE_URL Р С‘ WEBAPI_API_KEY Р Р† .env, Р В·Р В°РЎвЂљР ВµР С Р С—Р ВµРЎР‚Р ВµР В·Р В°Р С—РЎС“РЎРѓРЎвЂљР С‘РЎвЂљР Вµ Р С—РЎР‚Р С‘Р В»Р С•Р В¶Р ВµР Р…Р С‘Р Вµ.",
         }
         audit_meta = {"payload": {"reason": "webapi_not_configured"}}
     else:
@@ -553,14 +556,14 @@ async def admin_actions_submit(
 
             token = form.get("_csrf_token") or request.headers.get(settings.csrf_token_header)
             if not token:
-                raise CSRFAuthError(status_code=400, detail="CSRF-С‚РѕРєРµРЅ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚.")
+                raise CSRFAuthError(status_code=400, detail="CSRF-РЎвЂљР С•Р С”Р ВµР Р… Р С•РЎвЂљРЎРѓРЎС“РЎвЂљРЎРѓРЎвЂљР Р†РЎС“Р ВµРЎвЂљ.")
             validate_csrf_token(token)
             payload_form = form_values.setdefault(action_key, {})
             result = await _execute_action(action_key, payload_form, security_settings)
         except CSRFAuthError as exc:
             result = {
                 "status": "error",
-                "title": "CSRF-РїСЂРѕРІРµСЂРєР° РЅРµ РїСЂРѕР№РґРµРЅР°",
+                "title": "CSRF-Р С—РЎР‚Р С•Р Р†Р ВµРЎР‚Р С”Р В° Р Р…Р Вµ Р С—РЎР‚Р С•Р в„–Р Т‘Р ВµР Р…Р В°",
                 "message": exc.detail,
             }
             audit_meta = {
@@ -572,7 +575,7 @@ async def admin_actions_submit(
         except RateLimitExceeded as exc:
             result = {
                 "status": "error",
-                "title": "РЎР»РёС€РєРѕРј РјРЅРѕРіРѕ Р·Р°РїСЂРѕСЃРѕРІ",
+                "title": "Р РЋР В»Р С‘РЎв‚¬Р С”Р С•Р С Р СР Р…Р С•Р С–Р С• Р В·Р В°Р С—РЎР‚Р С•РЎРѓР С•Р Р†",
                 "message": exc.detail,
             }
             audit_meta = {
@@ -584,7 +587,7 @@ async def admin_actions_submit(
         except ActionValidationError as exc:
             result = {
                 "status": "error",
-                "title": "РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё",
+                "title": "Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р Р†Р В°Р В»Р С‘Р Т‘Р В°РЎвЂ Р С‘Р С‘",
                 "message": str(exc),
             }
             audit_meta = {
@@ -596,7 +599,7 @@ async def admin_actions_submit(
         except WebAPIConfigurationError as exc:
             result = {
                 "status": "error",
-                "title": "Web API РЅРµРґРѕСЃС‚СѓРїРЅРѕ",
+                "title": "Web API Р Р…Р ВµР Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р Р…Р С•",
                 "message": str(exc),
             }
             audit_meta = {
@@ -611,7 +614,7 @@ async def admin_actions_submit(
                 detail = f"{detail} (HTTP {exc.status_code})"
             result = {
                 "status": "error",
-                "title": "Web API РѕС‚РІРµС‚РёР»Рѕ РѕС€РёР±РєРѕР№",
+                "title": "Web API Р С•РЎвЂљР Р†Р ВµРЎвЂљР С‘Р В»Р С• Р С•РЎв‚¬Р С‘Р В±Р С”Р С•Р в„–",
                 "message": detail,
             }
             audit_meta = {
@@ -622,11 +625,11 @@ async def admin_actions_submit(
                 }
             }
         except Exception as exc:  # pragma: no cover
-            logger.exception("РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РґРµР№СЃС‚РІРёРµ %s", action_key)
+            logger.exception("Р СњР Вµ РЎС“Р Т‘Р В°Р В»Р С•РЎРѓРЎРЉ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р С‘РЎвЂљРЎРЉ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ %s", action_key)
             result = {
                 "status": "error",
-                "title": "РќРµРїСЂРµРґРІРёРґРµРЅРЅР°СЏ РѕС€РёР±РєР°",
-                "message": f"Р—Р°РїСЂРѕСЃ РЅРµ РІС‹РїРѕР»РЅРµРЅ: {exc}",
+                "title": "Р СњР ВµР С—РЎР‚Р ВµР Т‘Р Р†Р С‘Р Т‘Р ВµР Р…Р Р…Р В°РЎРЏ Р С•РЎв‚¬Р С‘Р В±Р С”Р В°",
+                "message": f"Р вЂ”Р В°Р С—РЎР‚Р С•РЎРѓ Р Р…Р Вµ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…: {exc}",
             }
             audit_meta = {
                 "payload": {
@@ -685,13 +688,13 @@ async def admin_actions_submit(
 
 @app.get("/health", tags=["monitoring"])
 async def healthcheck() -> dict[str, str]:
-    """РџСЂРѕСЃС‚РµР№С€РёР№ СЌРЅРґРїРѕРёРЅС‚ РґР»СЏ РїСЂРѕРІРµСЂРєРё СЃРѕСЃС‚РѕСЏРЅРёСЏ РїСЂРёР»РѕР¶РµРЅРёСЏ."""
+    """Р СџРЎР‚Р С•РЎРѓРЎвЂљР ВµР в„–РЎв‚¬Р С‘Р в„– РЎРЊР Р…Р Т‘Р С—Р С•Р С‘Р Р…РЎвЂљ Р Т‘Р В»РЎРЏ Р С—РЎР‚Р С•Р Р†Р ВµРЎР‚Р С”Р С‘ РЎРѓР С•РЎРѓРЎвЂљР С•РЎРЏР Р…Р С‘РЎРЏ Р С—РЎР‚Р С‘Р В»Р С•Р В¶Р ВµР Р…Р С‘РЎРЏ."""
     return {"status": "ok"}
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    """РЎРѕР·РґР°С‘Рј С‚Р°Р±Р»РёС†С‹ Рё РїРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РґР°РЅРЅС‹Рµ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ."""
+    """Р РЋР С•Р В·Р Т‘Р В°РЎвЂР С РЎвЂљР В°Р В±Р В»Р С‘РЎвЂ РЎвЂ№ Р С‘ Р С—Р С•Р Т‘Р С–Р С•РЎвЂљР В°Р Р†Р В»Р С‘Р Р†Р В°Р ВµР С Р Т‘Р В°Р Р…Р Р…РЎвЂ№Р Вµ Р С—Р С• РЎС“Р СР С•Р В»РЎвЂЎР В°Р Р…Р С‘РЎР‹."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -703,5 +706,5 @@ async def on_startup() -> None:
 
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
-    """РљРѕСЂСЂРµРєС‚РЅРѕ Р·Р°РєСЂС‹РІР°РµРј СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ Р±Р°Р·РѕР№."""
+    """Р С™Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР Р…Р С• Р В·Р В°Р С”РЎР‚РЎвЂ№Р Р†Р В°Р ВµР С РЎРѓР С•Р ВµР Т‘Р С‘Р Р…Р ВµР Р…Р С‘РЎРЏ РЎРѓ Р В±Р В°Р В·Р С•Р в„–."""
     await engine.dispose()
