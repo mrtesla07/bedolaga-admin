@@ -12,7 +12,7 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 COPY scripts ./scripts
 
-RUN pip install --upgrade pip && pip install --editable .
+RUN pip install --upgrade pip && pip install --no-cache-dir -e .[dev]
 
 COPY . .
 

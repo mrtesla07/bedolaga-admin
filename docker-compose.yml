@@ -17,10 +17,12 @@ services:
     build:
       context: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/bedolaga_admin
+      WATCHFILES_FORCE_POLLING: "true"
     depends_on:
       - db
     ports:
