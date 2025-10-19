@@ -12,12 +12,14 @@ from app.core.permissions import (
     PERM_ACTION_SYNC,
     PERM_MANAGE_ROLES,
     PERM_MANAGE_USERS,
+    PERM_MANAGE_SECURITY,
     PERM_VIEW_AUDIT,
     PERM_VIEW_READONLY,
 )
 from app.models import (
     AdminActivityLog,
     AdminRole,
+    AdminSecuritySettings,
     AdminUser,
     PaymentMethod,
     Subscription,
@@ -27,7 +29,6 @@ from app.models import (
     User,
     UserStatus,
 )
-from app.services.audit import log_admin_action
 
 USER_STATUS_CHOICES = [
     (UserStatus.ACTIVE.value, "Активен"),
@@ -129,26 +130,6 @@ class AdminUserAdmin(ProtectedModelView, model=AdminUser):
         AdminUser.created_at,
     ]
 
-    async def after_model_change(self, data: dict, model: AdminUser, is_created: bool) -> None:  # type: ignore[override]
-        """Логирование изменений админских аккаунтов."""
-        actor = getattr(self, "identity", None)
-        actor_id = getattr(actor, "id", None)
-        await log_admin_action(
-            admin_id=actor_id,
-            action="admin_user_update",
-            status="success",
-            message="Профиль администратора обновлён" if not is_created else "Администратор создан",
-            target_type="admin_user",
-            target_id=str(model.id),
-            payload={
-                "email": model.email,
-                "roles": [role.slug for role in model.roles],
-                "is_active": model.is_active,
-                "is_superuser": model.is_superuser,
-            },
-            request=None,
-        )
-
 
 class AdminRoleAdmin(ProtectedModelView, model=AdminRole):
     """Роли администраторов."""
@@ -168,6 +149,40 @@ class AdminRoleAdmin(ProtectedModelView, model=AdminRole):
         AdminRole.created_at: "Создана",
     }
     form_columns = [AdminRole.slug, AdminRole.name, AdminRole.description]
+
+
+class SecuritySettingsAdmin(ProtectedModelView, model=AdminSecuritySettings):
+    """Настройки безопасности."""
+
+    name = "Настройки безопасности"
+    name_plural = "Настройки безопасности"
+    icon = "fa-solid fa-shield-halved"
+    required_permissions = {PERM_MANAGE_SECURITY}
+
+    can_create = False
+    can_delete = False
+
+    column_list = [
+        AdminSecuritySettings.id,
+        AdminSecuritySettings.balance_soft_limit_rub,
+        AdminSecuritySettings.balance_hard_limit_rub,
+        AdminSecuritySettings.require_balance_confirmation,
+        AdminSecuritySettings.require_block_confirmation,
+        AdminSecuritySettings.updated_at,
+    ]
+    column_labels = {
+        AdminSecuritySettings.balance_soft_limit_rub: "Мягкий лимит (₽)",
+        AdminSecuritySettings.balance_hard_limit_rub: "Жёсткий лимит (₽)",
+        AdminSecuritySettings.require_balance_confirmation: "Требовать подтверждение суммы",
+        AdminSecuritySettings.require_block_confirmation: "Требовать подтверждение блокировки",
+        AdminSecuritySettings.updated_at: "Обновлено",
+    }
+    form_columns = [
+        AdminSecuritySettings.balance_soft_limit_rub,
+        AdminSecuritySettings.balance_hard_limit_rub,
+        AdminSecuritySettings.require_balance_confirmation,
+        AdminSecuritySettings.require_block_confirmation,
+    ]
 
 
 class ReadOnlyModelView(ProtectedModelView):
@@ -467,6 +482,7 @@ class AdminActivityLogAdmin(ReadOnlyModelView, model=AdminActivityLog):
 admin_views = [
     AdminUserAdmin,
     AdminRoleAdmin,
+    SecuritySettingsAdmin,
     BotUserAdmin,
     SubscriptionAdmin,
     TransactionAdmin,

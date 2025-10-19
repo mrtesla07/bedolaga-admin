@@ -10,6 +10,7 @@ PERM_VIEW_READONLY = "admin.read"
 PERM_MANAGE_USERS = "admin.users.manage"
 PERM_MANAGE_ROLES = "admin.roles.manage"
 PERM_VIEW_AUDIT = "admin.audit.view"
+PERM_MANAGE_SECURITY = "admin.security.manage"
 
 PERM_ACTION_EXTEND = "actions.extend_subscription"
 PERM_ACTION_BALANCE = "actions.recharge_balance"
@@ -32,6 +33,7 @@ ROLE_PERMISSIONS: Mapping[str, Set[str]] = {
         PERM_VIEW_READONLY,
         PERM_MANAGE_USERS,
         PERM_MANAGE_ROLES,
+        PERM_MANAGE_SECURITY,
         PERM_VIEW_AUDIT,
         PERM_ACTION_EXTEND,
         PERM_ACTION_BALANCE,

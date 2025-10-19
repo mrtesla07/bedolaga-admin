@@ -264,6 +264,23 @@
                         </div>
                     {% endif %}
                 {% endfor %}
+                {% if action.key == "recharge_balance" %}
+                <div class="note">Мягкий лимит: {{ security_settings.balance_soft_limit_rub }} ₽, жёсткий лимит: {{ security_settings.balance_hard_limit_rub }} ₽.</div>
+                <div class="field checkbox">
+                    <label>
+                        <input type="checkbox" name="confirm_amount" value="on" {% if values.get('confirm_amount') in ['on','true','1',1,True] %}checked{% endif %} {% if not api_configured or not permitted %}disabled{% endif %}>
+                        <span>Подтверждаю выполнение операции</span>
+                    </label>
+                </div>
+                {% elif action.key == "block_user" %}
+                <div class="note">Для блокировки требуется подтверждение.</div>
+                <div class="field checkbox">
+                    <label>
+                        <input type="checkbox" name="confirm_block" value="on" {% if values.get('confirm_block') in ['on','true','1',1,True] %}checked{% endif %} {% if not api_configured or not permitted %}disabled{% endif %}>
+                        <span>Подтверждаю блокировку пользователя</span>
+                    </label>
+                </div>
+                {% endif %}
                 <button type="submit" {% if not api_configured or not permitted %}disabled{% endif %}>
                     {% if permitted %}Запустить действие{% else %}Недостаточно прав{% endif %}
                 </button>

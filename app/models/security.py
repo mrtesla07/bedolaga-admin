@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Table, Text, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Table, Text, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -84,3 +84,33 @@ class AdminActivityLog(Base):
         if admin and admin.email:
             return admin.email
         return "—"
+
+
+class AdminSecuritySettings(Base):
+    """Настройки безопасности административных действий."""
+
+    __tablename__ = "admin_security_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    balance_soft_limit_rub: Mapped[int] = mapped_column(Integer, default=50000, nullable=False)
+    balance_hard_limit_rub: Mapped[int] = mapped_column(Integer, default=100000, nullable=False)
+    require_balance_confirmation: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    require_block_confirmation: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return "<AdminSecuritySettings>"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "balance_soft_limit_rub": self.balance_soft_limit_rub,
+            "balance_hard_limit_rub": self.balance_hard_limit_rub,
+            "require_balance_confirmation": self.require_balance_confirmation,
+            "require_block_confirmation": self.require_block_confirmation,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

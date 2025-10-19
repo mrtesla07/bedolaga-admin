@@ -27,7 +27,7 @@ from app.core.permissions import (
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import AsyncSessionFactory, engine
-from app.models import AdminUser, Subscription, UserStatus
+from app.models import AdminSecuritySettings, AdminUser, Subscription, UserStatus
 from app.services.audit import log_admin_action
 from app.services.webapi import (
     WebAPIConfigurationError,
@@ -218,6 +218,26 @@ def _build_allowed_actions(permissions: set[str]) -> dict[str, bool]:
     return allowed
 
 
+
+async def _ensure_security_settings() -> None:
+    async with AsyncSessionFactory() as session:
+        settings = await session.get(AdminSecuritySettings, 1)
+        if settings is None:
+            session.add(AdminSecuritySettings(id=1))
+            await session.commit()
+
+
+async def _get_security_settings() -> AdminSecuritySettings:
+    async with AsyncSessionFactory() as session:
+        settings = await session.get(AdminSecuritySettings, 1)
+        if settings is None:
+            settings = AdminSecuritySettings(id=1)
+            session.add(settings)
+            await session.commit()
+            await session.refresh(settings)
+        return settings
+
+
 def _parse_amount_rubles(value: str | None) -> tuple[int, Decimal]:
     if value is None or not str(value).strip():
         raise ActionValidationError("Сумма: укажите значение.")
@@ -239,7 +259,11 @@ def _is_checked(value: Any) -> bool:
     return bool(value)
 
 
-async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, Any]:
+async def _execute_action(
+    action_key: str,
+    form: Dict[str, Any],
+    security_settings: AdminSecuritySettings,
+) -> dict[str, Any]:
     client = get_webapi_client()
 
     if action_key == "extend_subscription":
@@ -251,7 +275,7 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
             subscription = result.scalar_one_or_none()
 
         if not subscription:
-            raise ActionValidationError("У пользователя нет подписки или она не найдена.")
+            raise ActionValidationError("У пользователя нет активной подписки.")
 
         response = await client.extend_subscription(subscription.id, days)
         end_date = response.get("end_date")
@@ -280,6 +304,26 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
         amount_kopeks, amount = _parse_amount_rubles(form.get("amount_rub"))
         description = (form.get("description") or "Корректировка через админку").strip()
         create_transaction = _is_checked(form.get("create_transaction"))
+
+        amount_abs = abs(amount)
+        soft_limit = Decimal(security_settings.balance_soft_limit_rub or 0)
+        hard_limit = Decimal(security_settings.balance_hard_limit_rub or 0)
+        confirmation_checked = _is_checked(form.get("confirm_amount"))
+
+        if hard_limit > 0 and amount_abs > hard_limit:
+            raise ActionValidationError(
+                f"Сумма {amount_abs:.2f} ₽ превышает жёсткий лимит {hard_limit:.2f} ₽."
+            )
+
+        if (
+            security_settings.require_balance_confirmation
+            and soft_limit > 0
+            and amount_abs > soft_limit
+            and not confirmation_checked
+        ):
+            raise ActionValidationError(
+                "Подтвердите выполнение операции, отметив чекбокс подтверждения."
+            )
 
         response = await client.update_balance(
             user_id,
@@ -313,8 +357,13 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
                         "amount_rub": f"{amount:.2f}",
                         "description": description,
                         "create_transaction": create_transaction,
+                        "confirmed": confirmation_checked,
                     },
                     "response": response,
+                    "limits": {
+                        "soft_limit_rub": security_settings.balance_soft_limit_rub,
+                        "hard_limit_rub": security_settings.balance_hard_limit_rub,
+                    },
                 },
             },
         }
@@ -323,14 +372,21 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
         user_id = _require_int(form.get("user_id"), label="ID пользователя", min_value=1)
         mode = str(form.get("mode") or "block").lower()
         if mode not in {"block", "unblock"}:
-            raise ActionValidationError("Выберите действие для изменения статуса.")
+            raise ActionValidationError("Выберите корректное действие для изменения статуса.")
+
+        confirmation_checked = _is_checked(form.get("confirm_block"))
+        if security_settings.require_block_confirmation and not confirmation_checked:
+            raise ActionValidationError("Подтвердите блокировку, отметив чекбокс.")
 
         status_value = UserStatus.BLOCKED.value if mode == "block" else UserStatus.ACTIVE.value
         response = await client.update_user_status(user_id, status_value)
         new_status = response.get("status", status_value)
 
         action_text = "заблокирован" if mode == "block" else "разблокирован"
-        message = f"Статус пользователя {user_id} обновлён ({new_status}). Пользователь {action_text}."
+        message = (
+            f"Статус пользователя {user_id} обновлён ({new_status}). "
+            f"Пользователь {action_text}."
+        )
 
         return {
             "status": "success",
@@ -341,7 +397,7 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
                 "target_type": "user",
                 "target_id": str(user_id),
                 "payload": {
-                    "input": {"mode": mode, "status": status_value},
+                    "input": {"mode": mode, "status": status_value, "confirmed": confirmation_checked},
                     "response": response,
                 },
             },
@@ -358,149 +414,29 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
         elif mode == "from_panel_update":
             response = await client.sync_from_panel("update_only")
             message = _format_sync_message(response, "Получены обновления из RemnaWave.")
-    elif mode == "sync_statuses":
-        response = await client.sync_subscription_statuses()
-        message = _format_sync_message(response, "Статусы подписок синхронизированы.")
-    else:
-        raise ActionValidationError("Неизвестный режим синхронизации.")
+        elif mode == "sync_statuses":
+            response = await client.sync_subscription_statuses()
+            message = _format_sync_message(response, "Статусы подписок синхронизированы.")
+        else:
+            raise ActionValidationError("Неизвестный режим синхронизации.")
 
-    return {
-        "status": "success",
-        "title": "Синхронизация запущена",
-        "message": message,
-        "response": response,
-        "_audit": {
-            "target_type": "remnawave_sync",
-            "target_id": mode,
-            "payload": {
-                "input": {"mode": mode},
-                "response": response,
+        return {
+            "status": "success",
+            "title": "Синхронизация запущена",
+            "message": message,
+            "response": response,
+            "_audit": {
+                "target_type": "remnawave_sync",
+                "target_id": mode,
+                "payload": {
+                    "input": {"mode": mode},
+                    "response": response,
+                },
             },
-        },
-    }
+        }
 
     raise ActionValidationError("Неизвестное действие.")
 
-
-async def _admin_account_exists() -> bool:
-    async with AsyncSessionFactory() as session:
-        result = await session.execute(select(func.count()).select_from(AdminUser))
-        return (result.scalar_one() or 0) > 0
-
-
-@app.middleware("http")
-async def enforce_admin_setup(request: Request, call_next):
-    """Переадресует на страницу создания администратора, если учётки ещё нет."""
-    path = request.url.path
-    if (
-        path.startswith("/admin")
-        and not path.startswith("/admin/setup")
-        and not path.startswith("/admin/static")
-        and not getattr(app.state, "admin_exists", False)
-    ):
-        return RedirectResponse(url="/admin/setup", status_code=status.HTTP_303_SEE_OTHER)
-
-    return await call_next(request)
-
-
-@app.get("/admin/setup", include_in_schema=False)
-async def admin_setup_form(request: Request):
-    """Форма первичного создания администратора."""
-    if getattr(app.state, "admin_exists", False):
-        return RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    return templates.TemplateResponse(
-        "setup.html",
-        {"request": request, "errors": [], "form": {}},
-    )
-
-
-@app.post("/admin/setup", include_in_schema=False)
-async def admin_setup_submit(
-    request: Request,
-    email: str = Form(...),
-    full_name: str | None = Form(None),
-    password: str = Form(...),
-    password_confirm: str = Form(...),
-):
-    """Обрабатывает создание первого администратора."""
-    if getattr(app.state, "admin_exists", False):
-        return RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
-
-    email_normalized = email.strip().lower()
-    full_name_normalized = full_name.strip() if full_name else None
-
-    errors: list[str] = []
-    form_state = {
-        "email": email_normalized,
-        "full_name": full_name_normalized or "",
-    }
-
-    if not email_normalized:
-        errors.append("Введите корректный адрес электронной почты.")
-
-    if len(password) < 8:
-        errors.append("Пароль должен содержать не менее 8 символов.")
-
-    if password != password_confirm:
-        errors.append("Пароли не совпадают.")
-
-    async with AsyncSessionFactory() as session:
-        if not errors:
-            result = await session.execute(select(AdminUser).where(AdminUser.email == email_normalized))
-            if result.scalar_one_or_none():
-                errors.append("Администратор с такой почтой уже существует.")
-
-        if errors:
-            return templates.TemplateResponse(
-                "setup.html",
-                {"request": request, "errors": errors, "form": form_state},
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
-        user = AdminUser(
-            email=email_normalized,
-            full_name=full_name_normalized,
-            hashed_password=get_password_hash(password),
-            is_active=True,
-            is_superuser=True,
-        )
-        session.add(user)
-        await session.commit()
-
-    app.state.admin_exists = True
-    return RedirectResponse(url="/admin/login?setup=done", status_code=status.HTTP_303_SEE_OTHER)
-
-
-async def get_current_admin(request: Request) -> AdminUser:
-    """Проверяет авторизацию администратора для кастомных маршрутов."""
-    user_id = request.session.get(auth_backend.session_key)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Location": "/admin/login"},
-        )
-
-    try:
-        admin_id = int(user_id)
-    except (TypeError, ValueError):
-        request.session.pop(auth_backend.session_key, None)
-        raise HTTPException(
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Location": "/admin/login"},
-        )
-
-    async with AsyncSessionFactory() as session:
-        admin_user = await session.get(AdminUser, admin_id)
-
-    if not admin_user or not admin_user.is_active:
-        request.session.pop(auth_backend.session_key, None)
-        raise HTTPException(
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Location": "/admin/login"},
-        )
-
-    return admin_user
 
 
 @app.get("/admin/actions", include_in_schema=False)
@@ -509,18 +445,22 @@ async def admin_actions_page(
     current_admin: AdminUser = Depends(get_current_admin),
 ):
     """Страница действий web API."""
+    await _ensure_security_settings()
     permissions = _get_permissions(request)
+    security_settings = await _get_security_settings()
+    api_configured = is_webapi_configured()
     context: Dict[str, Any] = {
         "request": request,
         "admin": current_admin,
         "actions": ADMIN_ACTIONS,
         "result": None,
-        "api_configured": is_webapi_configured(),
+        "api_configured": api_configured,
         "permissions": sorted(permissions),
         "allowed_actions": _build_allowed_actions(permissions),
         "form_values": {},
         "submitted_action": None,
         "csrf_token": "",
+        "security_settings": security_settings,
     }
     response = templates.TemplateResponse("actions.html", context)
     context["csrf_token"] = issue_csrf(response)
@@ -533,14 +473,16 @@ async def admin_actions_submit(
     current_admin: AdminUser = Depends(get_current_admin),
 ):
     """Обрабатывает запуск действий web API."""
+    await _ensure_security_settings()
     form = await request.form()
     action_key = str(form.get("action") or "")
     action_meta = _get_action_meta(action_key)
-    form_values: Dict[str, Dict[str, Any]] = {}
     permissions = _get_permissions(request)
     allowed_actions = _build_allowed_actions(permissions)
     api_configured = is_webapi_configured()
+    security_settings = await _get_security_settings()
 
+    form_values: Dict[str, Dict[str, Any]] = {}
     if action_meta:
         collected: Dict[str, Any] = {}
         for field in action_meta.get("fields", []):
@@ -551,7 +493,16 @@ async def admin_actions_submit(
                 collected[name] = "on" if form.get(name) else ""
             else:
                 collected[name] = form.get(name) or ""
-        form_values[action_key] = collected
+        if collected:
+            form_values[action_key] = collected
+
+        extras: Dict[str, Any] = {}
+        if action_key == "recharge_balance":
+            extras["confirm_amount"] = "on" if form.get("confirm_amount") else ""
+        if action_key == "block_user":
+            extras["confirm_block"] = "on" if form.get("confirm_block") else ""
+        if extras:
+            form_values.setdefault(action_key, {}).update(extras)
 
     audit_meta: dict[str, Any] | None = None
 
@@ -567,8 +518,7 @@ async def admin_actions_submit(
             "title": "Недостаточно прав",
             "message": "У вас нет прав на выполнение этого действия.",
         }
-        form_snapshot = form_values.get(action_key, {})
-        audit_meta = {"payload": {"form": form_snapshot, "reason": "permission_denied"}}
+        audit_meta = {"payload": {"form": form_values.get(action_key, {}), "reason": "permission_denied"}}
     elif not api_configured:
         result = {
             "status": "error",
@@ -582,7 +532,8 @@ async def admin_actions_submit(
             if not token:
                 raise CSRFAuthError(status_code=400, detail="CSRF-токен отсутствует.")
             validate_csrf_token(token)
-            result = await _execute_action(action_key, form_values[action_key])
+            payload_form = form_values.setdefault(action_key, {})
+            result = await _execute_action(action_key, payload_form, security_settings)
         except CSRFAuthError as exc:
             result = {
                 "status": "error",
@@ -601,14 +552,24 @@ async def admin_actions_submit(
                 "title": "Ошибка валидации",
                 "message": str(exc),
             }
-            audit_meta = {"payload": {"form": form_values.get(action_key, {}), "error": "validation"}}
+            audit_meta = {
+                "payload": {
+                    "form": form_values.get(action_key, {}),
+                    "error": "validation",
+                }
+            }
         except WebAPIConfigurationError as exc:
             result = {
                 "status": "error",
                 "title": "Web API недоступно",
                 "message": str(exc),
             }
-            audit_meta = {"payload": {"form": form_values.get(action_key, {}), "error": "webapi_configuration"}}
+            audit_meta = {
+                "payload": {
+                    "form": form_values.get(action_key, {}),
+                    "error": "webapi_configuration",
+                }
+            }
         except WebAPIRequestError as exc:
             detail = str(exc)
             if exc.status_code:
@@ -625,7 +586,7 @@ async def admin_actions_submit(
                     "response": getattr(exc, "payload", None),
                 }
             }
-        except Exception as exc:  # pragma: no cover - защита от непредвиденных ошибок
+        except Exception as exc:  # pragma: no cover
             logger.exception("Не удалось выполнить действие %s", action_key)
             result = {
                 "status": "error",
@@ -676,6 +637,7 @@ async def admin_actions_submit(
         "form_values": form_values,
         "submitted_action": action_key if action_meta else None,
         "csrf_token": "",
+        "security_settings": security_settings,
     }
     response = templates.TemplateResponse(
         "actions.html",
@@ -694,11 +656,12 @@ async def healthcheck() -> dict[str, str]:
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    """Создаём таблицы и проверяем, есть ли уже администраторы."""
+    """Создаём таблицы и подготавливаем данные по умолчанию."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     app.state.admin_exists = await _admin_account_exists()
+    await _ensure_security_settings()
 
 
 @app.on_event("shutdown")
