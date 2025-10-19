@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         validation_alias="DATABASE_URL",
     )
 
+    webapi_base_url: str | None = Field(default=None, validation_alias="WEBAPI_BASE_URL")
+    webapi_api_key: str | None = Field(default=None, validation_alias="WEBAPI_API_KEY")
+    webapi_timeout: float = Field(default=10.0, validation_alias="WEBAPI_TIMEOUT_SECONDS")
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

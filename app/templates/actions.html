@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>Админ-действия (черновик) — Bedolaga Admin</title>
+    <title>Действия web API — Bedolaga Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root {
@@ -15,15 +15,20 @@
             padding: 2rem 1rem 3rem;
             background: #f8fafc;
         }
+        header, main, footer {
+            max-width: 960px;
+            margin: 0 auto;
+        }
         header {
-            max-width: 900px;
-            margin: 0 auto 1.5rem;
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
         h1 {
-            font-size: 1.8rem;
+            font-size: 1.9rem;
             margin: 0;
         }
         a.back {
@@ -32,42 +37,95 @@
             font-weight: 600;
         }
         main {
-            max-width: 900px;
-            margin: 0 auto;
             display: grid;
             gap: 1.5rem;
         }
         section.card {
-            background: white;
-            border-radius: 14px;
-            padding: 1.5rem;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 1.75rem;
+            box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid transparent;
+        }
+        section.card.active {
+            border-color: #6366f1;
+            box-shadow: 0 18px 48px rgba(99, 102, 241, 0.25);
         }
         section.card h2 {
             margin: 0 0 0.5rem;
-            font-size: 1.35rem;
+            font-size: 1.45rem;
         }
         section.card p {
             margin: 0 0 1.25rem;
             color: #475569;
         }
+        .field {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+            gap: 0.4rem;
+        }
+        .field label span {
+            font-weight: 600;
+        }
+        .field input,
+        .field select,
+        .field textarea {
+            font-size: 1rem;
+            padding: 0.75rem;
+            border-radius: 10px;
+            border: 1px solid #cbd5f5;
+            background: #f8fafc;
+        }
+        .field input:focus,
+        .field select:focus,
+        .field textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .field textarea {
+            resize: vertical;
+        }
+        .field.checkbox {
+            flex-direction: row;
+            align-items: center;
+        }
+        .field.checkbox label {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .field.checkbox input[type="checkbox"] {
+            width: 1.1rem;
+            height: 1.1rem;
+            accent-color: #6366f1;
+        }
         form button {
             border: none;
             border-radius: 10px;
-            padding: 0.75rem 1.2rem;
+            padding: 0.85rem 1.4rem;
             font-weight: 600;
-            color: white;
+            color: #ffffff;
             background: #6366f1;
             cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
-        form button:hover {
+        form button:hover:not([disabled]) {
             transform: translateY(-1px);
-            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.3);
+        }
+        form button[disabled] {
+            background: #94a3b8;
+            cursor: not-allowed;
+            box-shadow: none;
         }
         .alert {
             padding: 1rem 1.25rem;
-            border-radius: 12px;
+            border-radius: 14px;
             margin-bottom: 1.5rem;
             font-weight: 500;
         }
@@ -75,24 +133,32 @@
             background: #eef2ff;
             color: #3730a3;
         }
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+        }
         .alert-error {
             background: #fee2e2;
             color: #991b1b;
         }
         footer {
-            max-width: 900px;
-            margin: 2rem auto 0;
+            margin-top: 2rem;
             color: #64748b;
             font-size: 0.9rem;
             text-align: center;
         }
         @media (prefers-color-scheme: dark) {
             body { background: #0f172a; color: #e2e8f0; }
-            section.card { background: #0b1120; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.6); }
+            section.card { background: #0b1120; box-shadow: 0 16px 42px rgba(15, 23, 42, 0.5); border-color: rgba(148, 163, 184, 0.2); }
+            section.card.active { border-color: #a5b4fc; box-shadow: 0 18px 48px rgba(165, 180, 252, 0.35); }
             section.card p { color: #94a3b8; }
+            .field input,
+            .field select,
+            .field textarea { background: #0f172a; border-color: #334155; color: #e2e8f0; }
             form button { background: #4f46e5; }
-            form button:hover { box-shadow: 0 10px 20px rgba(79, 70, 229, 0.4); }
+            form button:hover:not([disabled]) { box-shadow: 0 12px 24px rgba(79, 70, 229, 0.35); }
             .alert-info { background: rgba(99, 102, 241, 0.15); color: #c7d2fe; }
+            .alert-success { background: rgba(34, 197, 94, 0.15); color: #bbf7d0; }
             .alert-error { background: rgba(248, 113, 113, 0.15); color: #fecaca; }
             a.back { color: #a5b4fc; }
             footer { color: #94a3b8; }
@@ -101,7 +167,7 @@
 </head>
 <body>
     <header>
-        <h1>Черновые действия веб-API</h1>
+        <h1>Действия web API</h1>
         <a class="back" href="/admin/">← Назад в панель</a>
     </header>
     <main>
@@ -110,26 +176,93 @@
             <strong>{{ result.title }}</strong><br>
             {{ result.message }}
         </div>
-        {% else %}
+        {% endif %}
+
+        {% if not api_configured %}
+        <div class="alert alert-error">
+            <strong>Web API недоступно.</strong><br>
+            Укажите переменные <code>WEBAPI_BASE_URL</code> и <code>WEBAPI_API_KEY</code>, затем перезапустите приложение. Формы ниже временно выключены.
+        </div>
+        {% endif %}
+
+        {% if not result and api_configured %}
         <div class="alert alert-info">
-            <strong>Пока без интеграции.</strong><br>
-            Ниже перечислены планируемые действия. При нажатии выводится уведомление, фактические вызовы API будут реализованы в следующей итерации.
+            <strong>Выберите действие.</strong><br>
+            Операции выполняются сразу после отправки формы; проверяйте ввод перед запуском.
         </div>
         {% endif %}
 
         {% for action in actions %}
-        <section class="card">
+        {% set values = form_values.get(action.key, {}) %}
+        {% set is_active = submitted_action == action.key %}
+        <section class="card{% if is_active %} active{% endif %}">
             <h2>{{ action.title }}</h2>
             <p>{{ action.description }}</p>
             <form method="post" action="/admin/actions">
                 <input type="hidden" name="action" value="{{ action.key }}">
-                <button type="submit">Запустить (пока заглушка)</button>
+                {% for field in action.get("fields", []) %}
+                    {% set value = values.get(field.name) if field.name in values else field.get("default", "") %}
+                    {% if field.type == "checkbox" %}
+                        {% set checked = value in ["on", "true", "1", 1, True] %}
+                        <div class="field checkbox">
+                            <label>
+                                <input type="checkbox" name="{{ field.name }}" value="on" {% if checked %}checked{% endif %} {% if not api_configured %}disabled{% endif %}>
+                                <span>{{ field.label }}</span>
+                            </label>
+                        </div>
+                    {% elif field.type == "textarea" %}
+                        <div class="field">
+                            <label>
+                                <span>{{ field.label }}</span>
+                                <textarea
+                                    name="{{ field.name }}"
+                                    {% if field.rows %}rows="{{ field.rows }}"{% endif %}
+                                    {% if field.required %}required{% endif %}
+                                    {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+                                    {% if not api_configured %}disabled{% endif %}
+                                >{{ value }}</textarea>
+                            </label>
+                        </div>
+                    {% elif field.type == "select" %}
+                        <div class="field">
+                            <label>
+                                <span>{{ field.label }}</span>
+                                <select
+                                    name="{{ field.name }}"
+                                    {% if field.required %}required{% endif %}
+                                    {% if not api_configured %}disabled{% endif %}
+                                >
+                                    {% for option in field.options %}
+                                    <option value="{{ option.value }}" {% if value == option.value %}selected{% endif %}>{{ option.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                        </div>
+                    {% else %}
+                        <div class="field">
+                            <label>
+                                <span>{{ field.label }}</span>
+                                <input
+                                    type="{{ field.type }}"
+                                    name="{{ field.name }}"
+                                    value="{{ value }}"
+                                    {% if field.required %}required{% endif %}
+                                    {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+                                    {% if field.min is defined %}min="{{ field.min }}"{% endif %}
+                                    {% if field.step %}step="{{ field.step }}"{% endif %}
+                                    {% if not api_configured %}disabled{% endif %}
+                                >
+                            </label>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                <button type="submit" {% if not api_configured %}disabled{% endif %}>Запустить действие</button>
             </form>
         </section>
         {% endfor %}
     </main>
     <footer>
-        Вход выполнен как: {{ admin.full_name or admin.email }}. Страница предназначена для отладки будущей интеграции.
+        Вход выполнен как: {{ admin.full_name or admin.email }}. Действия используют web API бота; проверяйте права доступа к токену.
     </footer>
 </body>
 </html>
