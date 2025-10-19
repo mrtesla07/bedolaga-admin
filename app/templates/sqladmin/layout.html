@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from '_macros.html' import display_menu %}
+
+{% block head %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', path='sqladmin.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="admin-shell">
+  <aside class="admin-shell__sidebar">
+    <div class="admin-shell__logo">
+      <a href="{{ url_for('admin:index') }}" title="Домой">
+        <img src="{{ url_for('static', path='bedolaga-logo.svg') }}" alt="Логотип Bedolaga">
+      </a>
+      <div class="admin-shell__brand">
+        <h1>{{ admin.title or 'Bedolaga Admin' }}</h1>
+        <p>Панель управления экосистемой Bedolaga</p>
+      </div>
+    </div>
+
+    <nav>
+      <ul class="sqladmin-nav">
+        {{ display_menu(admin._menu, request) }}
+        <li><a href="{{ url_for('admin:index') }}">Обзор моделей</a></li>
+        <li><a href="/admin/actions">Действия web API</a></li>
+      </ul>
+    </nav>
+
+    {% if admin.authentication_backend %}
+    <div class="admin-shell__logout">
+      <a href="{{ request.url_for('admin:logout') }}">Выход</a>
+    </div>
+    {% endif %}
+  </aside>
+
+  <div class="admin-shell__main">
+    <header class="admin-shell__header">
+      <div class="admin-shell__status">
+        <span class="title">{{ title }}</span>
+        <div class="chips">
+          <span class="chip chip--success">SQLAdmin</span>
+          <span class="chip">{{ request.url.path }}</span>
+        </div>
+      </div>
+      <div class="admin-shell__user">
+        {% if request.state.admin_user %}
+          <span>{{ request.state.admin_user.full_name or request.state.admin_user.email }}</span>
+          <span>{{ request.state.admin_user.email }}</span>
+        {% else %}
+          <span>Гость панели</span>
+        {% endif %}
+      </div>
+    </header>
+
+    <section class="admin-shell__content">
+      <div class="page-header d-print-none">
+        {% block content_header %}
+        <div class="row align-items-center">
+          <div class="col">
+            <h2 class="page-title">{{ title }}</h2>
+            <div class="page-pretitle">{{ subtitle }}</div>
+          </div>
+        </div>
+        {% endblock %}
+      </div>
+      <div class="page-body">
+        {% block content_body %}{% endblock %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

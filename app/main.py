@@ -1,4 +1,4 @@
-"""Точка входа FastAPI-приложения."""
+﻿"""РўРѕС‡РєР° РІС…РѕРґР° FastAPI-РїСЂРёР»РѕР¶РµРЅРёСЏ."""
 
 from __future__ import annotations
 
@@ -69,6 +69,7 @@ admin = Admin(
     app=app,
     engine=engine,
     authentication_backend=auth_backend,
+    templates_dir=str(Path(__file__).parent / "templates/sqladmin"),
 )
 
 for view in admin_views:
@@ -77,21 +78,21 @@ for view in admin_views:
 ADMIN_ACTIONS: list[dict[str, Any]] = [
     {
         "key": "extend_subscription",
-        "title": "Продлить подписку",
-        "description": "Продлевает текущую подписку пользователя через web API.",
+        "title": "РџСЂРѕРґР»РёС‚СЊ РїРѕРґРїРёСЃРєСѓ",
+        "description": "РџСЂРѕРґР»РµРІР°РµС‚ С‚РµРєСѓС‰СѓСЋ РїРѕРґРїРёСЃРєСѓ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ С‡РµСЂРµР· web API.",
         "permission": PERM_ACTION_EXTEND,
         "fields": [
             {
                 "name": "user_id",
-                "label": "ID пользователя",
+                "label": "ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
                 "type": "number",
                 "required": True,
                 "min": 1,
-                "placeholder": "Например, 102",
+                "placeholder": "РќР°РїСЂРёРјРµСЂ, 102",
             },
             {
                 "name": "days",
-                "label": "Количество дней",
+                "label": "РљРѕР»РёС‡РµСЃС‚РІРѕ РґРЅРµР№",
                 "type": "number",
                 "required": True,
                 "min": 1,
@@ -102,21 +103,21 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "key": "recharge_balance",
-        "title": "Начислить баланс",
-        "description": "Начисляет или списывает баланс пользователя с опциональной записью в транзакции.",
+        "title": "РќР°С‡РёСЃР»РёС‚СЊ Р±Р°Р»Р°РЅСЃ",
+        "description": "РќР°С‡РёСЃР»СЏРµС‚ РёР»Рё СЃРїРёСЃС‹РІР°РµС‚ Р±Р°Р»Р°РЅСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ СЃ РѕРїС†РёРѕРЅР°Р»СЊРЅРѕР№ Р·Р°РїРёСЃСЊСЋ РІ С‚СЂР°РЅР·Р°РєС†РёРё.",
         "permission": PERM_ACTION_BALANCE,
         "fields": [
             {
                 "name": "user_id",
-                "label": "ID пользователя",
+                "label": "ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
                 "type": "number",
                 "required": True,
                 "min": 1,
-                "placeholder": "ID в таблице users",
+                "placeholder": "ID РІ С‚Р°Р±Р»РёС†Рµ users",
             },
             {
                 "name": "amount_rub",
-                "label": "Сумма, ₽",
+                "label": "РЎСѓРјРјР°, в‚Ѕ",
                 "type": "number",
                 "step": "0.01",
                 "required": True,
@@ -124,14 +125,14 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
             },
             {
                 "name": "description",
-                "label": "Комментарий",
+                "label": "РљРѕРјРјРµРЅС‚Р°СЂРёР№",
                 "type": "textarea",
                 "rows": 3,
-                "placeholder": "Причина корректировки, появится в описании транзакции",
+                "placeholder": "РџСЂРёС‡РёРЅР° РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё, РїРѕСЏРІРёС‚СЃСЏ РІ РѕРїРёСЃР°РЅРёРё С‚СЂР°РЅР·Р°РєС†РёРё",
             },
             {
                 "name": "create_transaction",
-                "label": "Создать запись в истории транзакций",
+                "label": "РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёРё С‚СЂР°РЅР·Р°РєС†РёР№",
                 "type": "checkbox",
                 "default": True,
             },
@@ -139,46 +140,46 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "key": "block_user",
-        "title": "Обновить статус пользователя",
-        "description": "Переключает статус пользователя между активным и заблокированным.",
+        "title": "РћР±РЅРѕРІРёС‚СЊ СЃС‚Р°С‚СѓСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
+        "description": "РџРµСЂРµРєР»СЋС‡Р°РµС‚ СЃС‚Р°С‚СѓСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РјРµР¶РґСѓ Р°РєС‚РёРІРЅС‹Рј Рё Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРЅС‹Рј.",
         "permission": PERM_ACTION_BLOCK,
         "fields": [
             {
                 "name": "user_id",
-                "label": "ID пользователя",
+                "label": "ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ",
                 "type": "number",
                 "required": True,
                 "min": 1,
-                "placeholder": "ID в таблице users",
+                "placeholder": "ID РІ С‚Р°Р±Р»РёС†Рµ users",
             },
             {
                 "name": "mode",
-                "label": "Действие",
+                "label": "Р”РµР№СЃС‚РІРёРµ",
                 "type": "select",
                 "default": "block",
                 "options": [
-                    {"value": "block", "label": "Заблокировать"},
-                    {"value": "unblock", "label": "Разблокировать"},
+                    {"value": "block", "label": "Р—Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ"},
+                    {"value": "unblock", "label": "Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ"},
                 ],
             },
         ],
     },
     {
         "key": "sync_access",
-        "title": "Синхронизация с RemnaWave",
-        "description": "Запускает синхронизацию данных между ботом и RemnaWave панелью.",
+        "title": "РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ СЃ RemnaWave",
+        "description": "Р—Р°РїСѓСЃРєР°РµС‚ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЋ РґР°РЅРЅС‹С… РјРµР¶РґСѓ Р±РѕС‚РѕРј Рё RemnaWave РїР°РЅРµР»СЊСЋ.",
         "permission": PERM_ACTION_SYNC,
         "fields": [
             {
                 "name": "mode",
-                "label": "Операция",
+                "label": "РћРїРµСЂР°С†РёСЏ",
                 "type": "select",
                 "default": "to_panel",
                 "options": [
-                    {"value": "to_panel", "label": "Выгрузить данные в панель"},
-                    {"value": "from_panel_all", "label": "Загрузить из панели (все пользователи)"},
-                    {"value": "from_panel_update", "label": "Загрузить из панели (только обновления)"},
-                    {"value": "sync_statuses", "label": "Синхронизировать статусы подписок"},
+                    {"value": "to_panel", "label": "Р’С‹РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ РІ РїР°РЅРµР»СЊ"},
+                    {"value": "from_panel_all", "label": "Р—Р°РіСЂСѓР·РёС‚СЊ РёР· РїР°РЅРµР»Рё (РІСЃРµ РїРѕР»СЊР·РѕРІР°С‚РµР»Рё)"},
+                    {"value": "from_panel_update", "label": "Р—Р°РіСЂСѓР·РёС‚СЊ РёР· РїР°РЅРµР»Рё (С‚РѕР»СЊРєРѕ РѕР±РЅРѕРІР»РµРЅРёСЏ)"},
+                    {"value": "sync_statuses", "label": "РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СѓСЃС‹ РїРѕРґРїРёСЃРѕРє"},
                 ],
             },
         ],
@@ -186,7 +187,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
 ]
 
 class ActionValidationError(ValueError):
-    """Ошибка валидации данных действия."""
+    """РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё РґР°РЅРЅС‹С… РґРµР№СЃС‚РІРёСЏ."""
 
 
 def _get_action_meta(action_key: str) -> dict[str, Any] | None:
@@ -195,13 +196,13 @@ def _get_action_meta(action_key: str) -> dict[str, Any] | None:
 
 def _require_int(value: str | None, *, label: str, min_value: int | None = None) -> int:
     if value is None or str(value).strip() == "":
-        raise ActionValidationError(f"{label}: укажите значение.")
+        raise ActionValidationError(f"{label}: СѓРєР°Р¶РёС‚Рµ Р·РЅР°С‡РµРЅРёРµ.")
     try:
         number = int(str(value).strip())
     except ValueError as exc:
-        raise ActionValidationError(f"{label}: ожидается целое число.") from exc
+        raise ActionValidationError(f"{label}: РѕР¶РёРґР°РµС‚СЃСЏ С†РµР»РѕРµ С‡РёСЃР»Рѕ.") from exc
     if min_value is not None and number < min_value:
-        raise ActionValidationError(f"{label}: значение должно быть не меньше {min_value}.")
+        raise ActionValidationError(f"{label}: Р·РЅР°С‡РµРЅРёРµ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РЅРµ РјРµРЅСЊС€Рµ {min_value}.")
     return number
 
 
@@ -215,13 +216,13 @@ def _format_sync_message(response: dict[str, Any], default: str) -> str:
 
 
 def _get_permissions(request: Request) -> set[str]:
-    """Возвращает множество разрешений текущего администратора."""
+    """Р’РѕР·РІСЂР°С‰Р°РµС‚ РјРЅРѕР¶РµСЃС‚РІРѕ СЂР°Р·СЂРµС€РµРЅРёР№ С‚РµРєСѓС‰РµРіРѕ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°."""
     perms = getattr(request.state, "admin_permissions", set())
     return set(perms)
 
 
 def _build_allowed_actions(permissions: set[str]) -> dict[str, bool]:
-    """Создаёт карту доступных действий."""
+    """РЎРѕР·РґР°С‘С‚ РєР°СЂС‚Сѓ РґРѕСЃС‚СѓРїРЅС‹С… РґРµР№СЃС‚РІРёР№."""
     allowed: dict[str, bool] = {}
     for action in ADMIN_ACTIONS:
         required = action.get("permission")
@@ -251,15 +252,15 @@ async def _get_security_settings() -> AdminSecuritySettings:
 
 def _parse_amount_rubles(value: str | None) -> tuple[int, Decimal]:
     if value is None or not str(value).strip():
-        raise ActionValidationError("Сумма: укажите значение.")
+        raise ActionValidationError("РЎСѓРјРјР°: СѓРєР°Р¶РёС‚Рµ Р·РЅР°С‡РµРЅРёРµ.")
     normalized = str(value).replace(",", ".").strip()
     try:
         amount = Decimal(normalized)
     except (InvalidOperation, ValueError) as exc:
-        raise ActionValidationError("Сумма: некорректный формат.") from exc
+        raise ActionValidationError("РЎСѓРјРјР°: РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ С„РѕСЂРјР°С‚.") from exc
     amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     if amount == 0:
-        raise ActionValidationError("Сумма должна отличаться от нуля.")
+        raise ActionValidationError("РЎСѓРјРјР° РґРѕР»Р¶РЅР° РѕС‚Р»РёС‡Р°С‚СЊСЃСЏ РѕС‚ РЅСѓР»СЏ.")
     kopeks = int(amount * 100)
     return kopeks, amount
 
@@ -278,26 +279,26 @@ async def _execute_action(
     client = get_webapi_client()
 
     if action_key == "extend_subscription":
-        user_id = _require_int(form.get("user_id"), label="ID пользователя", min_value=1)
-        days = _require_int(form.get("days"), label="Количество дней", min_value=1)
+        user_id = _require_int(form.get("user_id"), label="ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ", min_value=1)
+        days = _require_int(form.get("days"), label="РљРѕР»РёС‡РµСЃС‚РІРѕ РґРЅРµР№", min_value=1)
 
         async with AsyncSessionFactory() as session:
             result = await session.execute(select(Subscription).where(Subscription.user_id == user_id))
             subscription = result.scalar_one_or_none()
 
         if not subscription:
-            raise ActionValidationError("У пользователя нет активной подписки.")
+            raise ActionValidationError("РЈ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РЅРµС‚ Р°РєС‚РёРІРЅРѕР№ РїРѕРґРїРёСЃРєРё.")
 
         response = await client.extend_subscription(subscription.id, days)
         end_date = response.get("end_date")
 
-        message = f"Подписка пользователя {user_id} продлена на {days} дн."
+        message = f"РџРѕРґРїРёСЃРєР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ {user_id} РїСЂРѕРґР»РµРЅР° РЅР° {days} РґРЅ."
         if end_date:
-            message += f" Новая дата окончания: {end_date}."
+            message += f" РќРѕРІР°СЏ РґР°С‚Р° РѕРєРѕРЅС‡Р°РЅРёСЏ: {end_date}."
 
         return {
             "status": "success",
-            "title": "Подписка продлена",
+            "title": "РџРѕРґРїРёСЃРєР° РїСЂРѕРґР»РµРЅР°",
             "message": message,
             "response": response,
             "_audit": {
@@ -311,9 +312,9 @@ async def _execute_action(
         }
 
     if action_key == "recharge_balance":
-        user_id = _require_int(form.get("user_id"), label="ID пользователя", min_value=1)
+        user_id = _require_int(form.get("user_id"), label="ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ", min_value=1)
         amount_kopeks, amount = _parse_amount_rubles(form.get("amount_rub"))
-        description = (form.get("description") or "Корректировка через админку").strip()
+        description = (form.get("description") or "РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° С‡РµСЂРµР· Р°РґРјРёРЅРєСѓ").strip()
         create_transaction = _is_checked(form.get("create_transaction"))
 
         amount_abs = abs(amount)
@@ -323,7 +324,7 @@ async def _execute_action(
 
         if hard_limit > 0 and amount_abs > hard_limit:
             raise ActionValidationError(
-                f"Сумма {amount_abs:.2f} ₽ превышает жёсткий лимит {hard_limit:.2f} ₽."
+                f"РЎСѓРјРјР° {amount_abs:.2f} в‚Ѕ РїСЂРµРІС‹С€Р°РµС‚ Р¶С‘СЃС‚РєРёР№ Р»РёРјРёС‚ {hard_limit:.2f} в‚Ѕ."
             )
 
         if (
@@ -333,7 +334,7 @@ async def _execute_action(
             and not confirmation_checked
         ):
             raise ActionValidationError(
-                "Подтвердите выполнение операции, отметив чекбокс подтверждения."
+                "РџРѕРґС‚РІРµСЂРґРёС‚Рµ РІС‹РїРѕР»РЅРµРЅРёРµ РѕРїРµСЂР°С†РёРё, РѕС‚РјРµС‚РёРІ С‡РµРєР±РѕРєСЃ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ."
             )
 
         response = await client.update_balance(
@@ -350,13 +351,13 @@ async def _execute_action(
             except (InvalidOperation, TypeError):
                 balance_rubles = None
 
-        message = f"Баланс пользователя {user_id} скорректирован на {amount:+.2f} ₽."
+        message = f"Р‘Р°Р»Р°РЅСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ {user_id} СЃРєРѕСЂСЂРµРєС‚РёСЂРѕРІР°РЅ РЅР° {amount:+.2f} в‚Ѕ."
         if balance_rubles is not None:
-            message += f" Текущий баланс: {Decimal(str(balance_rubles)):.2f} ₽."
+            message += f" РўРµРєСѓС‰РёР№ Р±Р°Р»Р°РЅСЃ: {Decimal(str(balance_rubles)):.2f} в‚Ѕ."
 
         return {
             "status": "success",
-            "title": "Баланс обновлён",
+            "title": "Р‘Р°Р»Р°РЅСЃ РѕР±РЅРѕРІР»С‘РЅ",
             "message": message,
             "response": response,
             "_audit": {
@@ -380,28 +381,28 @@ async def _execute_action(
         }
 
     if action_key == "block_user":
-        user_id = _require_int(form.get("user_id"), label="ID пользователя", min_value=1)
+        user_id = _require_int(form.get("user_id"), label="ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ", min_value=1)
         mode = str(form.get("mode") or "block").lower()
         if mode not in {"block", "unblock"}:
-            raise ActionValidationError("Выберите корректное действие для изменения статуса.")
+            raise ActionValidationError("Р’С‹Р±РµСЂРёС‚Рµ РєРѕСЂСЂРµРєС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ РґР»СЏ РёР·РјРµРЅРµРЅРёСЏ СЃС‚Р°С‚СѓСЃР°.")
 
         confirmation_checked = _is_checked(form.get("confirm_block"))
         if security_settings.require_block_confirmation and not confirmation_checked:
-            raise ActionValidationError("Подтвердите блокировку, отметив чекбокс.")
+            raise ActionValidationError("РџРѕРґС‚РІРµСЂРґРёС‚Рµ Р±Р»РѕРєРёСЂРѕРІРєСѓ, РѕС‚РјРµС‚РёРІ С‡РµРєР±РѕРєСЃ.")
 
         status_value = UserStatus.BLOCKED.value if mode == "block" else UserStatus.ACTIVE.value
         response = await client.update_user_status(user_id, status_value)
         new_status = response.get("status", status_value)
 
-        action_text = "заблокирован" if mode == "block" else "разблокирован"
+        action_text = "Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ" if mode == "block" else "СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
         message = (
-            f"Статус пользователя {user_id} обновлён ({new_status}). "
-            f"Пользователь {action_text}."
+            f"РЎС‚Р°С‚СѓСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ {user_id} РѕР±РЅРѕРІР»С‘РЅ ({new_status}). "
+            f"РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ {action_text}."
         )
 
         return {
             "status": "success",
-            "title": "Статус обновлён",
+            "title": "РЎС‚Р°С‚СѓСЃ РѕР±РЅРѕРІР»С‘РЅ",
             "message": message,
             "response": response,
             "_audit": {
@@ -418,22 +419,22 @@ async def _execute_action(
         mode = str(form.get("mode") or "to_panel").lower()
         if mode == "to_panel":
             response = await client.sync_to_panel()
-            message = _format_sync_message(response, "Выгрузка данных в RemnaWave выполнена.")
+            message = _format_sync_message(response, "Р’С‹РіСЂСѓР·РєР° РґР°РЅРЅС‹С… РІ RemnaWave РІС‹РїРѕР»РЅРµРЅР°.")
         elif mode == "from_panel_all":
             response = await client.sync_from_panel("all")
-            message = _format_sync_message(response, "Загрузка всех пользователей из RemnaWave завершена.")
+            message = _format_sync_message(response, "Р—Р°РіСЂСѓР·РєР° РІСЃРµС… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РёР· RemnaWave Р·Р°РІРµСЂС€РµРЅР°.")
         elif mode == "from_panel_update":
             response = await client.sync_from_panel("update_only")
-            message = _format_sync_message(response, "Получены обновления из RemnaWave.")
+            message = _format_sync_message(response, "РџРѕР»СѓС‡РµРЅС‹ РѕР±РЅРѕРІР»РµРЅРёСЏ РёР· RemnaWave.")
         elif mode == "sync_statuses":
             response = await client.sync_subscription_statuses()
-            message = _format_sync_message(response, "Статусы подписок синхронизированы.")
+            message = _format_sync_message(response, "РЎС‚Р°С‚СѓСЃС‹ РїРѕРґРїРёСЃРѕРє СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅС‹.")
         else:
-            raise ActionValidationError("Неизвестный режим синхронизации.")
+            raise ActionValidationError("РќРµРёР·РІРµСЃС‚РЅС‹Р№ СЂРµР¶РёРј СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё.")
 
         return {
             "status": "success",
-            "title": "Синхронизация запущена",
+            "title": "РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ Р·Р°РїСѓС‰РµРЅР°",
             "message": message,
             "response": response,
             "_audit": {
@@ -446,7 +447,7 @@ async def _execute_action(
             },
         }
 
-    raise ActionValidationError("Неизвестное действие.")
+    raise ActionValidationError("РќРµРёР·РІРµСЃС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ.")
 
 
 
@@ -455,7 +456,7 @@ async def admin_actions_page(
     request: Request,
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    """Страница действий web API."""
+    """РЎС‚СЂР°РЅРёС†Р° РґРµР№СЃС‚РІРёР№ web API."""
     await _ensure_security_settings()
     permissions = _get_permissions(request)
     security_settings = await _get_security_settings()
@@ -483,7 +484,7 @@ async def admin_actions_submit(
     request: Request,
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    """Обрабатывает запуск действий web API."""
+    """РћР±СЂР°Р±Р°С‚С‹РІР°РµС‚ Р·Р°РїСѓСЃРє РґРµР№СЃС‚РІРёР№ web API."""
     await _ensure_security_settings()
     form = await request.form()
     action_key = str(form.get("action") or "")
@@ -522,21 +523,21 @@ async def admin_actions_submit(
     if not action_meta:
         result = {
             "status": "error",
-            "title": "Неизвестное действие",
-            "message": "Выбранное действие не распознано. Обновите страницу и попробуйте снова.",
+            "title": "РќРµРёР·РІРµСЃС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ",
+            "message": "Р’С‹Р±СЂР°РЅРЅРѕРµ РґРµР№СЃС‚РІРёРµ РЅРµ СЂР°СЃРїРѕР·РЅР°РЅРѕ. РћР±РЅРѕРІРёС‚Рµ СЃС‚СЂР°РЅРёС†Сѓ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.",
         }
     elif action_meta.get("permission") and action_meta["permission"] not in permissions:
         result = {
             "status": "error",
-            "title": "Недостаточно прав",
-            "message": "У вас нет прав на выполнение этого действия.",
+            "title": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ",
+            "message": "РЈ РІР°СЃ РЅРµС‚ РїСЂР°РІ РЅР° РІС‹РїРѕР»РЅРµРЅРёРµ СЌС‚РѕРіРѕ РґРµР№СЃС‚РІРёСЏ.",
         }
         audit_meta = {"payload": {"form": form_values.get(action_key, {}), "reason": "permission_denied"}}
     elif not api_configured:
         result = {
             "status": "error",
-            "title": "Web API не настроено",
-            "message": "Укажите WEBAPI_BASE_URL и WEBAPI_API_KEY в .env, затем перезапустите приложение.",
+            "title": "Web API РЅРµ РЅР°СЃС‚СЂРѕРµРЅРѕ",
+            "message": "РЈРєР°Р¶РёС‚Рµ WEBAPI_BASE_URL Рё WEBAPI_API_KEY РІ .env, Р·Р°С‚РµРј РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚Рµ РїСЂРёР»РѕР¶РµРЅРёРµ.",
         }
         audit_meta = {"payload": {"reason": "webapi_not_configured"}}
     else:
@@ -550,14 +551,14 @@ async def admin_actions_submit(
 
             token = form.get("_csrf_token") or request.headers.get(settings.csrf_token_header)
             if not token:
-                raise CSRFAuthError(status_code=400, detail="CSRF-токен отсутствует.")
+                raise CSRFAuthError(status_code=400, detail="CSRF-С‚РѕРєРµРЅ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚.")
             validate_csrf_token(token)
             payload_form = form_values.setdefault(action_key, {})
             result = await _execute_action(action_key, payload_form, security_settings)
         except CSRFAuthError as exc:
             result = {
                 "status": "error",
-                "title": "CSRF-проверка не пройдена",
+                "title": "CSRF-РїСЂРѕРІРµСЂРєР° РЅРµ РїСЂРѕР№РґРµРЅР°",
                 "message": exc.detail,
             }
             audit_meta = {
@@ -569,7 +570,7 @@ async def admin_actions_submit(
         except RateLimitExceeded as exc:
             result = {
                 "status": "error",
-                "title": "Слишком много запросов",
+                "title": "РЎР»РёС€РєРѕРј РјРЅРѕРіРѕ Р·Р°РїСЂРѕСЃРѕРІ",
                 "message": exc.detail,
             }
             audit_meta = {
@@ -581,7 +582,7 @@ async def admin_actions_submit(
         except ActionValidationError as exc:
             result = {
                 "status": "error",
-                "title": "Ошибка валидации",
+                "title": "РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё",
                 "message": str(exc),
             }
             audit_meta = {
@@ -593,7 +594,7 @@ async def admin_actions_submit(
         except WebAPIConfigurationError as exc:
             result = {
                 "status": "error",
-                "title": "Web API недоступно",
+                "title": "Web API РЅРµРґРѕСЃС‚СѓРїРЅРѕ",
                 "message": str(exc),
             }
             audit_meta = {
@@ -608,7 +609,7 @@ async def admin_actions_submit(
                 detail = f"{detail} (HTTP {exc.status_code})"
             result = {
                 "status": "error",
-                "title": "Web API ответило ошибкой",
+                "title": "Web API РѕС‚РІРµС‚РёР»Рѕ РѕС€РёР±РєРѕР№",
                 "message": detail,
             }
             audit_meta = {
@@ -619,11 +620,11 @@ async def admin_actions_submit(
                 }
             }
         except Exception as exc:  # pragma: no cover
-            logger.exception("Не удалось выполнить действие %s", action_key)
+            logger.exception("РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РґРµР№СЃС‚РІРёРµ %s", action_key)
             result = {
                 "status": "error",
-                "title": "Непредвиденная ошибка",
-                "message": f"Запрос не выполнен: {exc}",
+                "title": "РќРµРїСЂРµРґРІРёРґРµРЅРЅР°СЏ РѕС€РёР±РєР°",
+                "message": f"Р—Р°РїСЂРѕСЃ РЅРµ РІС‹РїРѕР»РЅРµРЅ: {exc}",
             }
             audit_meta = {
                 "payload": {
@@ -682,13 +683,13 @@ async def admin_actions_submit(
 
 @app.get("/health", tags=["monitoring"])
 async def healthcheck() -> dict[str, str]:
-    """Простейший эндпоинт для проверки состояния приложения."""
+    """РџСЂРѕСЃС‚РµР№С€РёР№ СЌРЅРґРїРѕРёРЅС‚ РґР»СЏ РїСЂРѕРІРµСЂРєРё СЃРѕСЃС‚РѕСЏРЅРёСЏ РїСЂРёР»РѕР¶РµРЅРёСЏ."""
     return {"status": "ok"}
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    """Создаём таблицы и подготавливаем данные по умолчанию."""
+    """РЎРѕР·РґР°С‘Рј С‚Р°Р±Р»РёС†С‹ Рё РїРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РґР°РЅРЅС‹Рµ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -700,5 +701,5 @@ async def on_startup() -> None:
 
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
-    """Корректно закрываем соединения с базой."""
+    """РљРѕСЂСЂРµРєС‚РЅРѕ Р·Р°РєСЂС‹РІР°РµРј СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ Р±Р°Р·РѕР№."""
     await engine.dispose()

@@ -1,0 +1,258 @@
+:root {
+    --bg-dark: #0b1120;
+    --bg-card: rgba(15, 23, 42, 0.68);
+    --bg-panel: rgba(15, 23, 42, 0.82);
+    --border: rgba(255, 255, 255, 0.08);
+    --accent: #6366f1;
+    --accent-soft: rgba(99, 102, 241, 0.14);
+    --text: #e2e8f0;
+    --text-muted: #cbd5f5;
+    --danger: #f87171;
+    --success: #34d399;
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+    background: var(--bg-dark);
+    color: var(--text);
+}
+
+.admin-shell {
+    display: grid;
+    min-height: 100vh;
+    grid-template-columns: clamp(240px, 22vw, 320px) 1fr;
+    background:
+        radial-gradient(ellipse at top left, rgba(99, 102, 241, 0.35), transparent 60%),
+        radial-gradient(ellipse at bottom right, rgba(14, 165, 233, 0.25), transparent 65%),
+        var(--bg-dark);
+}
+
+.admin-shell__sidebar {
+    position: relative;
+    padding: 2.5rem 2rem;
+    background: linear-gradient(160deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.7));
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.admin-shell__logo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.admin-shell__logo img {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    box-shadow: 0 20px 45px rgba(99, 102, 241, 0.35);
+}
+
+.admin-shell__brand h1 {
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+.admin-shell__brand p {
+    margin: 0.4rem 0 0;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.sqladmin-nav {
+    display: grid;
+    gap: 0.4rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sqladmin-nav li a,
+.sqladmin-nav li button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.sqladmin-nav li.active > a {
+    background: var(--accent-soft);
+    color: #ffffff;
+}
+
+.sqladmin-nav li a:hover,
+.sqladmin-nav li button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(2px);
+}
+
+.admin-shell__logout {
+    margin-top: auto;
+}
+
+.admin-shell__logout a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 10px;
+    background: rgba(248, 113, 113, 0.15);
+    color: #fecaca;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.admin-shell__logout a:hover {
+    background: rgba(248, 113, 113, 0.25);
+}
+
+.admin-shell__main {
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 2.5rem 3rem;
+    gap: 1.5rem;
+}
+
+.admin-shell__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 18px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.admin-shell__status {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.admin-shell__status span.title {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.chip {
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.chip--success { background: rgba(52, 211, 153, 0.18); color: #bbf7d0; }
+.chip--warning { background: rgba(248, 113, 113, 0.22); color: #fecaca; }
+
+.admin-shell__user {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+    color: var(--text-muted);
+}
+
+.admin-shell__content {
+    background: var(--bg-panel);
+    border-radius: 22px;
+    border: 1px solid var(--border);
+    box-shadow: 0 22px 52px rgba(15, 23, 42, 0.18);
+    padding: 2rem;
+    min-height: 60vh;
+}
+
+.page-header .page-title {
+    color: #fff;
+}
+
+.page-pretitle {
+    color: var(--text-muted);
+}
+
+.table {
+    color: var(--text);
+}
+
+.table thead th {
+    color: var(--text-muted);
+}
+
+.badge {
+    font-weight: 600;
+}
+
+.alert {
+    background: rgba(248, 250, 252, 0.08);
+    border-color: rgba(148, 163, 184, 0.18);
+    color: var(--text);
+}
+
+.btn-primary,
+.btn-success,
+.btn-danger,
+.btn-secondary {
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent), #818cf8);
+    border: none;
+}
+
+.btn-outline-primary {
+    border-radius: 999px;
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.form-control,
+.form-select {
+    background: rgba(15, 23, 42, 0.65);
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    color: var(--text);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+@media (max-width: 1024px) {
+    .admin-shell {
+        grid-template-columns: 1fr;
+    }
+    .admin-shell__sidebar {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+    }
+    .admin-shell__main {
+        padding: 1.5rem;
+    }
+}
