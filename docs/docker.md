@@ -1,34 +1,66 @@
-# Docker development environment
+# Docker для разработки (максимально просто)
 
-This project already ships with a Docker setup that is aimed at day-to-day development.
+> Если никогда не работал с Docker — не страшно. Повторяй шаг за шагом, ничего сложного нет.
 
-## Quick start
+## Что потребуется
 
-1. Create the `.env` file if you have not done it yet:
-   ```bash
-   copy .env.example .env  # PowerShell
+- Установленный Docker Desktop (Windows/Mac) или Docker Engine (Linux).
+- Свободные порты `5432` и `8000` (для базы и приложения).
+- Свободно хотя бы 2‑3 ГБ места на диске.
+
+## Шаг 1. Подготовь `.env`
+
+1. Открой терминал/PowerShell в корне проекта (`bedolaga-admin`).
+2. Скопируй пример окружения:
+   ```powershell
+   copy .env.example .env   # PowerShell
+   # или
+   cp .env.example .env     # Git Bash / Linux / macOS
    ```
-2. Build images and launch the stack:
-   ```bash
-   docker compose up --build
-   ```
-3. Open `http://localhost:8000/admin/setup` to create the first admin user.
+3. Открой файл `.env` в любом редакторе и настрой нужные переменные (секреты, ключи web API и т.д.).
 
-## How it works
+## Шаг 2. Запусти контейнеры
 
-- `docker-compose.yml` starts two services: PostgreSQL (`db`) and the FastAPI application (`app`).
-- The application container installs project dependencies once during the build step (`pip install -e .[dev]`).
-- The repository root is mounted into `/code` inside the container (`.:/code`), so any file edits on the host are immediately visible to the app.
-- `uvicorn --reload` together with the `WATCHFILES_FORCE_POLLING=true` env var enables live reload even on Windows host volumes.
+```bash
+docker compose up --build
+```
 
-## Typical workflow
+- Первая сборка может занять несколько минут (Docker качает образ Python и зависимости).
+- Когда увидишь в логах `Uvicorn running on http://0.0.0.0:8000`, значит всё запустилось.
 
-- Change code locally → the container reloads automatically.
-- Pull updates from git → run `docker compose restart app` (or `docker compose up --build` if dependencies changed).
-- Retrieve logs with `docker compose logs -f app`.
-- Run one-off commands, e.g. migrations:
-  ```bash
-  docker compose exec app alembic upgrade head
-  ```
+## Шаг 3. Создай администратора
 
-You can stop the stack with `docker compose down`. Named volume `postgres-data` keeps the database between restarts.
+1. Открой браузер и перейди по адресу `http://localhost:8000/admin/setup`.
+2. Заполни форму — получишь суперпользователя админки.
+3. После этого заходи в `http://localhost:8000/admin/`.
+
+## Как работает эта схема
+
+- `docker-compose.yml` запускает два сервиса:
+  - `db` — PostgreSQL с сохранением данных в volume `postgres-data`.
+  - `app` — FastAPI-приложение, которое собирается из `Dockerfile`.
+- Папка проекта монтируется внутрь контейнера (`.:/code`), поэтому любой файл, который правишь в IDE, тут же доступен приложению.
+- `uvicorn --reload` + переменная `WATCHFILES_FORCE_POLLING=true` позволяют ловить изменения даже на Windows (где inotify не работает как в Linux).
+- Перезапускаешь контейнер — получаешь свежий код; `git pull` + `docker compose restart app` — и приложение крутится с обновлениями.
+
+## Частые действия
+
+| Задача | Команда |
+| --- | --- |
+| Посмотреть логи приложения | `docker compose logs -f app` |
+| Перезапустить только приложение | `docker compose restart app` |
+| Пересобрать с нуля (если добавил зависимости) | `docker compose up --build` |
+| Выполнить команду внутри `app` | `docker compose exec app <команда>` |
+| Применить миграции | `docker compose exec app alembic upgrade head` |
+| Остановить всё | `docker compose down` |
+
+## После остановки
+
+- Команда `docker compose down` останавливает контейнеры, но том `postgres-data` оставляет данные.
+- Если нужно начать полностью с чистой базы: `docker compose down -v` (удалит и контейнеры, и volume).
+
+## Лайфхаки
+
+- При правках зависимостей (`pyproject.toml`) обязательно запускай `docker compose up --build`, чтобы контейнер установил новые пакеты.
+- Если приложение не стартует, проверь, что файл `.env` доступен и переменные окружения корректны.
+- Для доступа в контейнер с шеллом: `docker compose exec app bash`.

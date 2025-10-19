@@ -61,6 +61,16 @@ CSRF_SECRET_KEY=ваш-случайный-seed-для-токенов
 
 Для защиты форм используется cookie + скрытое поле `_csrf_token`. При необходимости можно переопределить `CSRF_HEADER_NAME`, `CSRF_COOKIE_NAME`, `CSRF_TOKEN_EXPIRE_MINUTES`.
 
+## Docker
+
+Для разработки удобнее запускать проект в контейнерах:
+
+1. Скопируйте окружение: `copy .env.example .env` (или `cp .env.example .env`).
+2. Отредактируйте .env, указав параметры БД и web API.
+3. Запустите `docker compose up --build`.
+
+Подробная инструкция: [docs/docker.md](docs/docker.md).
+
 ## Документация
 
 - `docs/roadmap.md` — этапы и статус работ.
