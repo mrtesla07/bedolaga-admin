@@ -30,6 +30,7 @@ from app.db.session import AsyncSessionFactory, engine
 from app.models import AdminSecuritySettings, AdminUser, Subscription, UserStatus
 from app.services.audit import log_admin_action
 from app.services.rate_limiter import RateLimitExceeded, RateLimiter
+from app.services.roles import ensure_default_roles
 from app.services.webapi import (
     WebAPIConfigurationError,
     WebAPIRequestError,
@@ -683,6 +684,7 @@ async def on_startup() -> None:
         await conn.run_sync(Base.metadata.create_all)
 
     app.state.admin_exists = await _admin_account_exists()
+    await ensure_default_roles()
     await _ensure_security_settings()
     app.state.rate_limiter = RateLimiter()
 

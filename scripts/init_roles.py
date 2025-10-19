@@ -2,31 +2,16 @@
 
 import argparse
 import asyncio
-from typing import Sequence
 
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionFactory
 from app.models import AdminRole, AdminUser
-
-DEFAULT_ROLES: Sequence[tuple[str, str, str]] = (
-    ("superadmin", "Суперадмин", "Полный доступ, управление ролями и токенами."),
-    ("manager", "Менеджер", "Просмотр данных и безопасные действия с ботом."),
-    ("viewer", "Наблюдатель", "Только просмотр данных."),
-)
+from app.services.roles import DEFAULT_ROLES, ensure_default_roles
 
 
 async def sync_roles() -> None:
-    async with AsyncSessionFactory() as session:
-        for slug, name, description in DEFAULT_ROLES:
-            result = await session.execute(select(AdminRole).where(AdminRole.slug == slug))
-            role = result.scalar_one_or_none()
-            if role:
-                role.name = name
-                role.description = description
-            else:
-                session.add(AdminRole(slug=slug, name=name, description=description))
-        await session.commit()
+    await ensure_default_roles()
 
 
 async def assign_role(email: str, slug: str) -> None:
@@ -39,7 +24,10 @@ async def assign_role(email: str, slug: str) -> None:
         role_result = await session.execute(select(AdminRole).where(AdminRole.slug == slug))
         role = role_result.scalar_one_or_none()
         if not role:
-            raise SystemExit(f"Роль {slug!r} не найдена. Сначала выполните синхронизацию ролей.")
+            available = ", ".join(sl for sl, *_ in DEFAULT_ROLES)
+            raise SystemExit(
+                f"Роль {slug!r} не найдена. Выполните синхронизацию или используйте одну из существующих: {available}."
+            )
 
         if role not in user.roles:
             user.roles.append(role)
