@@ -1,4 +1,4 @@
-"""In-memory rate limiter for admin actions."""
+﻿"""In-memory rate limiter for admin actions."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from fastapi import HTTPException
 class RateLimitExceeded(HTTPException):
     """Raised when rate limit is exceeded."""
 
-    def __init__(self, detail: str) -> None:
-        super().__init__(status_code=429, detail=detail)
+    def __init__(self, code: str = "rate_limit.exceeded") -> None:
+        super().__init__(status_code=429, detail={"code": code})
 
 
 class RateLimiter:
@@ -29,9 +29,7 @@ class RateLimiter:
         while bucket and bucket[0] < boundary:
             bucket.popleft()
         if len(bucket) >= limit:
-            raise RateLimitExceeded(
-                "Превышен лимит операций. Повторите попытку позже."  # noqa: E501
-            )
+            raise RateLimitExceeded()
         bucket.append(now)
 
 

@@ -192,82 +192,47 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
 ]
 
 class ActionValidationError(ValueError):
-    """Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р Р†Р В°Р В»Р С‘Р Т‘Р В°РЎвЂ Р С‘Р С‘ Р Т‘Р В°Р Р…Р Р…РЎвЂ№РЎвЂ¦ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎРЏ."""
+    """Raised when admin action validation fails."""
+
+
+def _t(locale: str, key: str, **kwargs: Any) -> str:
+    """Translate helper using provided locale."""
+    return translate(key, locale=locale, **kwargs)
+
 
 
 def _get_action_meta(action_key: str) -> dict[str, Any] | None:
     return next((item for item in ADMIN_ACTIONS if item["key"] == action_key), None)
 
 
-def _require_int(value: str | None, *, label: str, min_value: int | None = None) -> int:
-    if value is None or str(value).strip() == "":
-        raise ActionValidationError(f"{label}: РЎС“Р С”Р В°Р В¶Р С‘РЎвЂљР Вµ Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ.")
+def _require_int(value: Any, *, locale: str, field_key: str, min_value: int | None = None) -> int:
+    field_label = _t(locale, field_key)
+    text_value = str(value).strip() if value is not None else ""
+    if not text_value:
+        raise ActionValidationError(_t(locale, "validation.required", field=field_label))
     try:
-        number = int(str(value).strip())
+        number = int(text_value)
     except ValueError as exc:
-        raise ActionValidationError(f"{label}: Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљРЎРѓРЎРЏ РЎвЂ Р ВµР В»Р С•Р Вµ РЎвЂЎР С‘РЎРѓР В»Р С•.") from exc
+        raise ActionValidationError(_t(locale, "validation.invalid_integer", field=field_label)) from exc
     if min_value is not None and number < min_value:
-        raise ActionValidationError(f"{label}: Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ Р Т‘Р С•Р В»Р В¶Р Р…Р С• Р В±РЎвЂ№РЎвЂљРЎРЉ Р Р…Р Вµ Р СР ВµР Р…РЎРЉРЎв‚¬Р Вµ {min_value}.")
+        raise ActionValidationError(
+            _t(locale, "validation.min_value", field=field_label, min=min_value)
+        )
     return number
 
 
-def _format_sync_message(response: dict[str, Any], default: str) -> str:
-    detail = response.get("detail") or default
-    data = response.get("data") or response.get("stats")
-    if isinstance(data, dict) and data:
-        pairs = ", ".join(f"{key}: {value}" for key, value in data.items())
-        return f"{detail} ({pairs})"
-    return detail
-
-
-def _get_permissions(request: Request) -> set[str]:
-    """Р вЂ™Р С•Р В·Р Р†РЎР‚Р В°РЎвЂ°Р В°Р ВµРЎвЂљ Р СР Р…Р С•Р В¶Р ВµРЎРѓРЎвЂљР Р†Р С• РЎР‚Р В°Р В·РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘Р в„– РЎвЂљР ВµР С”РЎС“РЎвЂ°Р ВµР С–Р С• Р В°Р Т‘Р СР С‘Р Р…Р С‘РЎРѓРЎвЂљРЎР‚Р В°РЎвЂљР С•РЎР‚Р В°."""
-    perms = getattr(request.state, "admin_permissions", set())
-    return set(perms)
-
-
-def _build_allowed_actions(permissions: set[str]) -> dict[str, bool]:
-    """Р РЋР С•Р В·Р Т‘Р В°РЎвЂРЎвЂљ Р С”Р В°РЎР‚РЎвЂљРЎС“ Р Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р Р…РЎвЂ№РЎвЂ¦ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„–."""
-    allowed: dict[str, bool] = {}
-    for action in ADMIN_ACTIONS:
-        required = action.get("permission")
-        allowed[action["key"]] = required is None or required in permissions
-    return allowed
-
-
-
-async def _ensure_security_settings() -> None:
-    async with AsyncSessionFactory() as session:
-        settings = await session.get(AdminSecuritySettings, 1)
-        if settings is None:
-            session.add(AdminSecuritySettings(id=1))
-            await session.commit()
-
-
-async def _get_security_settings() -> AdminSecuritySettings:
-    async with AsyncSessionFactory() as session:
-        settings = await session.get(AdminSecuritySettings, 1)
-        if settings is None:
-            settings = AdminSecuritySettings(id=1)
-            session.add(settings)
-            await session.commit()
-            await session.refresh(settings)
-        return settings
-
-
-def _parse_amount_rubles(value: str | None) -> tuple[int, Decimal]:
-    if value is None or not str(value).strip():
-        raise ActionValidationError("Р РЋРЎС“Р СР СР В°: РЎС“Р С”Р В°Р В¶Р С‘РЎвЂљР Вµ Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ.")
-    normalized = str(value).replace(",", ".").strip()
+def _parse_amount_rubles(value: Any, *, locale: str) -> tuple[int, Decimal]:
+    field_label = _t(locale, "fields.amount")
+    text_value = str(value or "").replace(",", ".").strip()
+    if not text_value:
+        raise ActionValidationError(_t(locale, "validation.required", field=field_label))
     try:
-        amount = Decimal(normalized)
+        amount = Decimal(text_value)
     except (InvalidOperation, ValueError) as exc:
-        raise ActionValidationError("Р РЋРЎС“Р СР СР В°: Р Р…Р ВµР С”Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР Р…РЎвЂ№Р в„– РЎвЂћР С•РЎР‚Р СР В°РЎвЂљ.") from exc
+        raise ActionValidationError(_t(locale, "validation.invalid_amount", field=field_label)) from exc
     amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    if amount == 0:
-        raise ActionValidationError("Р РЋРЎС“Р СР СР В° Р Т‘Р С•Р В»Р В¶Р Р…Р В° Р С•РЎвЂљР В»Р С‘РЎвЂЎР В°РЎвЂљРЎРЉРЎРѓРЎРЏ Р С•РЎвЂљ Р Р…РЎС“Р В»РЎРЏ.")
-    kopeks = int(amount * 100)
-    return kopeks, amount
+    amount_kopeks = int(amount * 100)
+    return amount_kopeks, amount
 
 
 def _is_checked(value: Any) -> bool:
@@ -280,31 +245,31 @@ async def _execute_action(
     action_key: str,
     form: Dict[str, Any],
     security_settings: AdminSecuritySettings,
+    locale: str,
 ) -> dict[str, Any]:
     client = get_webapi_client()
 
     if action_key == "extend_subscription":
-        user_id = _require_int(form.get("user_id"), label="ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ", min_value=1)
-        days = _require_int(form.get("days"), label="Р С™Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• Р Т‘Р Р…Р ВµР в„–", min_value=1)
+        user_id = _require_int(form.get("user_id"), locale=locale, field_key="fields.user_id", min_value=1)
+        days = _require_int(form.get("days"), locale=locale, field_key="fields.days", min_value=1)
 
         async with AsyncSessionFactory() as session:
             result = await session.execute(select(Subscription).where(Subscription.user_id == user_id))
             subscription = result.scalar_one_or_none()
 
         if not subscription:
-            raise ActionValidationError("Р Р€ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ Р Р…Р ВµРЎвЂљ Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– Р С—Р С•Р Т‘Р С—Р С‘РЎРѓР С”Р С‘.")
+            raise ActionValidationError(_t(locale, "actions.extend.error.not_found", user_id=user_id))
 
         response = await client.extend_subscription(subscription.id, days)
         end_date = response.get("end_date")
-
-        message = f"Р СџР С•Р Т‘Р С—Р С‘РЎРѓР С”Р В° Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ {user_id} Р С—РЎР‚Р С•Р Т‘Р В»Р ВµР Р…Р В° Р Р…Р В° {days} Р Т‘Р Р…."
+        extra = ""
         if end_date:
-            message += f" Р СњР С•Р Р†Р В°РЎРЏ Р Т‘Р В°РЎвЂљР В° Р С•Р С”Р С•Р Р…РЎвЂЎР В°Р Р…Р С‘РЎРЏ: {end_date}."
+            extra = _t(locale, "actions.extend.success.extra", end_date=end_date)
 
         return {
             "status": "success",
-            "title": "Р СџР С•Р Т‘Р С—Р С‘РЎРѓР С”Р В° Р С—РЎР‚Р С•Р Т‘Р В»Р ВµР Р…Р В°",
-            "message": message,
+            "title": _t(locale, "actions.extend.success.title"),
+            "message": _t(locale, "actions.extend.success.message", user_id=user_id, days=days, extra=extra),
             "response": response,
             "_audit": {
                 "target_type": "subscription",
@@ -317,9 +282,9 @@ async def _execute_action(
         }
 
     if action_key == "recharge_balance":
-        user_id = _require_int(form.get("user_id"), label="ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ", min_value=1)
-        amount_kopeks, amount = _parse_amount_rubles(form.get("amount_rub"))
-        description = (form.get("description") or "Р С™Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р С”Р В° РЎвЂЎР ВµРЎР‚Р ВµР В· Р В°Р Т‘Р СР С‘Р Р…Р С”РЎС“").strip()
+        user_id = _require_int(form.get("user_id"), locale=locale, field_key="fields.user_id", min_value=1)
+        amount_kopeks, amount = _parse_amount_rubles(form.get("amount_rub"), locale=locale)
+        description = (form.get("description") or _t(locale, "actions.recharge.default_description")).strip()
         create_transaction = _is_checked(form.get("create_transaction"))
 
         amount_abs = abs(amount)
@@ -329,7 +294,7 @@ async def _execute_action(
 
         if hard_limit > 0 and amount_abs > hard_limit:
             raise ActionValidationError(
-                f"Р РЋРЎС“Р СР СР В° {amount_abs:.2f} РІвЂљР… Р С—РЎР‚Р ВµР Р†РЎвЂ№РЎв‚¬Р В°Р ВµРЎвЂљ Р В¶РЎвЂРЎРѓРЎвЂљР С”Р С‘Р в„– Р В»Р С‘Р СР С‘РЎвЂљ {hard_limit:.2f} РІвЂљР…."
+                _t(locale, "actions.recharge.error.hard_limit", amount=amount_abs, limit=hard_limit)
             )
 
         if (
@@ -338,9 +303,7 @@ async def _execute_action(
             and amount_abs > soft_limit
             and not confirmation_checked
         ):
-            raise ActionValidationError(
-                "Р СџР С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р Т‘Р С‘РЎвЂљР Вµ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…Р С‘Р Вµ Р С•Р С—Р ВµРЎР‚Р В°РЎвЂ Р С‘Р С‘, Р С•РЎвЂљР СР ВµРЎвЂљР С‘Р Р† РЎвЂЎР ВµР С”Р В±Р С•Р С”РЎРѓ Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р…Р С‘РЎРЏ."
-            )
+            raise ActionValidationError(_t(locale, "actions.recharge.error.confirm"))
 
         response = await client.update_balance(
             user_id,
@@ -356,13 +319,13 @@ async def _execute_action(
             except (InvalidOperation, TypeError):
                 balance_rubles = None
 
-        message = f"Р вЂР В°Р В»Р В°Р Р…РЎРѓ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ {user_id} РЎРѓР С”Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р… Р Р…Р В° {amount:+.2f} РІвЂљР…."
+        message = _t(locale, "actions.recharge.success.message", user_id=user_id, amount=amount)
         if balance_rubles is not None:
-            message += f" Р СћР ВµР С”РЎС“РЎвЂ°Р С‘Р в„– Р В±Р В°Р В»Р В°Р Р…РЎРѓ: {Decimal(str(balance_rubles)):.2f} РІвЂљР…."
+            message += _t(locale, "actions.recharge.success.balance", balance=Decimal(str(balance_rubles)))
 
         return {
             "status": "success",
-            "title": "Р вЂР В°Р В»Р В°Р Р…РЎРѓ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р…",
+            "title": _t(locale, "actions.recharge.success.title"),
             "message": message,
             "response": response,
             "_audit": {
@@ -386,29 +349,27 @@ async def _execute_action(
         }
 
     if action_key == "block_user":
-        user_id = _require_int(form.get("user_id"), label="ID Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ", min_value=1)
+        user_id = _require_int(form.get("user_id"), locale=locale, field_key="fields.user_id", min_value=1)
         mode = str(form.get("mode") or "block").lower()
         if mode not in {"block", "unblock"}:
-            raise ActionValidationError("Р вЂ™РЎвЂ№Р В±Р ВµРЎР‚Р С‘РЎвЂљР Вµ Р С”Р С•РЎР‚РЎР‚Р ВµР С”РЎвЂљР Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ Р Т‘Р В»РЎРЏ Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘РЎРЏ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓР В°.")
+            raise ActionValidationError(_t(locale, "actions.block.error.mode"))
 
         confirmation_checked = _is_checked(form.get("confirm_block"))
         if security_settings.require_block_confirmation and not confirmation_checked:
-            raise ActionValidationError("Р СџР С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р Т‘Р С‘РЎвЂљР Вµ Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р С”РЎС“, Р С•РЎвЂљР СР ВµРЎвЂљР С‘Р Р† РЎвЂЎР ВµР С”Р В±Р С•Р С”РЎРѓ.")
+            raise ActionValidationError(_t(locale, "actions.block.error.confirm"))
 
         status_value = UserStatus.BLOCKED.value if mode == "block" else UserStatus.ACTIVE.value
         response = await client.update_user_status(user_id, status_value)
         new_status = response.get("status", status_value)
-
-        action_text = "Р В·Р В°Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р В°Р Р…" if mode == "block" else "РЎР‚Р В°Р В·Р В±Р В»Р С•Р С”Р С‘РЎР‚Р С•Р Р†Р В°Р Р…"
-        message = (
-            f"Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ {user_id} Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р… ({new_status}). "
-            f"Р СџР С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЉ {action_text}."
-        )
+        status_key = f"status.{str(new_status).lower()}"
+        status_label = translate(status_key, locale=locale)
+        if status_label == status_key:
+            status_label = str(new_status)
 
         return {
             "status": "success",
-            "title": "Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р…",
-            "message": message,
+            "title": _t(locale, "actions.block.success.title"),
+            "message": _t(locale, "actions.block.success.message", user_id=user_id, status=status_label),
             "response": response,
             "_audit": {
                 "target_type": "user",
@@ -422,25 +383,30 @@ async def _execute_action(
 
     if action_key == "sync_access":
         mode = str(form.get("mode") or "to_panel").lower()
+        detail_keys = {
+            "to_panel": "actions.sync.detail.to_panel",
+            "from_panel_all": "actions.sync.detail.from_panel_all",
+            "from_panel_update": "actions.sync.detail.from_panel_update",
+            "sync_statuses": "actions.sync.detail.sync_statuses",
+        }
+        if mode not in detail_keys:
+            raise ActionValidationError(_t(locale, "actions.sync.error.mode"))
+
         if mode == "to_panel":
             response = await client.sync_to_panel()
-            message = _format_sync_message(response, "Р вЂ™РЎвЂ№Р С–РЎР‚РЎС“Р В·Р С”Р В° Р Т‘Р В°Р Р…Р Р…РЎвЂ№РЎвЂ¦ Р Р† RemnaWave Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…Р В°.")
         elif mode == "from_panel_all":
             response = await client.sync_from_panel("all")
-            message = _format_sync_message(response, "Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С”Р В° Р Р†РЎРѓР ВµРЎвЂ¦ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»Р ВµР в„– Р С‘Р В· RemnaWave Р В·Р В°Р Р†Р ВµРЎР‚РЎв‚¬Р ВµР Р…Р В°.")
         elif mode == "from_panel_update":
             response = await client.sync_from_panel("update_only")
-            message = _format_sync_message(response, "Р СџР С•Р В»РЎС“РЎвЂЎР ВµР Р…РЎвЂ№ Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ Р С‘Р В· RemnaWave.")
-        elif mode == "sync_statuses":
+        else:  # mode == "sync_statuses"
             response = await client.sync_subscription_statuses()
-            message = _format_sync_message(response, "Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓРЎвЂ№ Р С—Р С•Р Т‘Р С—Р С‘РЎРѓР С•Р С” РЎРѓР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р С‘РЎР‚Р С•Р Р†Р В°Р Р…РЎвЂ№.")
-        else:
-            raise ActionValidationError("Р СњР ВµР С‘Р В·Р Р†Р ВµРЎРѓРЎвЂљР Р…РЎвЂ№Р в„– РЎР‚Р ВµР В¶Р С‘Р С РЎРѓР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р В°РЎвЂ Р С‘Р С‘.")
+
+        detail_message = _format_sync_message(locale, response, detail_keys[mode])
 
         return {
             "status": "success",
-            "title": "Р РЋР С‘Р Р…РЎвЂ¦РЎР‚Р С•Р Р…Р С‘Р В·Р В°РЎвЂ Р С‘РЎРЏ Р В·Р В°Р С—РЎС“РЎвЂ°Р ВµР Р…Р В°",
-            "message": message,
+            "title": _t(locale, "actions.sync.success.title"),
+            "message": _t(locale, "actions.sync.success.message", detail=detail_message),
             "response": response,
             "_audit": {
                 "target_type": "remnawave_sync",
@@ -452,44 +418,38 @@ async def _execute_action(
             },
         }
 
-    raise ActionValidationError("Р СњР ВµР С‘Р В·Р Р†Р ВµРЎРѓРЎвЂљР Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ.")
+    raise ActionValidationError(_t(locale, "actions.error.unknown.message"))
 
 
-
-@app.get("/admin/actions", include_in_schema=False)
-async def admin_actions_page(
-    request: Request,
-    current_admin: AdminUser = Depends(get_current_admin),
-):
-    """Р РЋРЎвЂљРЎР‚Р В°Р Р…Р С‘РЎвЂ Р В° Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„– web API."""
-    await _ensure_security_settings()
-    permissions = _get_permissions(request)
-    security_settings = await _get_security_settings()
-    api_configured = is_webapi_configured()
-    context: Dict[str, Any] = {
-        "request": request,
-        "admin": current_admin,
-        "actions": ADMIN_ACTIONS,
-        "result": None,
-        "api_configured": api_configured,
-        "permissions": sorted(permissions),
-        "allowed_actions": _build_allowed_actions(permissions),
-        "form_values": {},
-        "submitted_action": None,
-        "csrf_token": "",
-        "security_settings": security_settings,
-    }
-    response = templates.TemplateResponse("actions.html", context)
-    context["csrf_token"] = issue_csrf(response)
-    return response
+def _format_sync_message(locale: str, response: dict[str, Any], detail_key: str) -> str:
+    detail = response.get("detail") or _t(locale, detail_key)
+    data = response.get("data") or response.get("stats")
+    if isinstance(data, dict) and data:
+        pairs = ", ".join(f"{key}: {value}" for key, value in data.items())
+        return f"{detail} ({pairs})"
+    return detail
 
 
-@app.post("/admin/actions", include_in_schema=False)
+def _get_permissions(request: Request) -> set[str]:
+    """Return permissions granted to the current admin user."""
+    perms = getattr(request.state, "admin_permissions", set())
+    return set(perms)
+
+
+def _build_allowed_actions(permissions: set[str]) -> dict[str, bool]:
+    """Create a map of available actions based on permissions."""
+    allowed: dict[str, bool] = {}
+    for action in ADMIN_ACTIONS:
+        required = action.get("permission")
+        allowed[action["key"]] = required is None or required in permissions
+    return allowed
+
+
 async def admin_actions_submit(
     request: Request,
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    """Р С›Р В±РЎР‚Р В°Р В±Р В°РЎвЂљРЎвЂ№Р Р†Р В°Р ВµРЎвЂљ Р В·Р В°Р С—РЎС“РЎРѓР С” Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„– web API."""
+    """Execute admin actions via web API."""
     await _ensure_security_settings()
     form = await request.form()
     action_key = str(form.get("action") or "")
@@ -500,6 +460,7 @@ async def admin_actions_submit(
     security_settings = await _get_security_settings()
     roles = getattr(request.state, "admin_roles", set())
     rate_limiter: RateLimiter | None = getattr(request.app.state, "rate_limiter", None)
+    locale = get_locale(request)
 
     form_values: Dict[str, Dict[str, Any]] = {}
     if action_meta:
@@ -528,26 +489,31 @@ async def admin_actions_submit(
     if not action_meta:
         result = {
             "status": "error",
-            "title": "Р СњР ВµР С‘Р В·Р Р†Р ВµРЎРѓРЎвЂљР Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ",
-            "message": "Р вЂ™РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…Р С•Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ Р Р…Р Вµ РЎР‚Р В°РЎРѓР С—Р С•Р В·Р Р…Р В°Р Р…Р С•. Р С›Р В±Р Р…Р С•Р Р†Р С‘РЎвЂљР Вµ РЎРѓРЎвЂљРЎР‚Р В°Р Р…Р С‘РЎвЂ РЎС“ Р С‘ Р С—Р С•Р С—РЎР‚Р С•Р В±РЎС“Р в„–РЎвЂљР Вµ РЎРѓР Р…Р С•Р Р†Р В°.",
+            "title": _t(locale, "actions.error.unknown.title"),
+            "message": _t(locale, "actions.error.unknown.message"),
         }
     elif action_meta.get("permission") and action_meta["permission"] not in permissions:
         result = {
             "status": "error",
-            "title": "Р СњР ВµР Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• Р С—РЎР‚Р В°Р Р†",
-            "message": "Р Р€ Р Р†Р В°РЎРѓ Р Р…Р ВµРЎвЂљ Р С—РЎР‚Р В°Р Р† Р Р…Р В° Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…Р С‘Р Вµ РЎРЊРЎвЂљР С•Р С–Р С• Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎРЏ.",
+            "title": _t(locale, "actions.error.permission.title"),
+            "message": _t(locale, "actions.error.permission.message"),
         }
         audit_meta = {"payload": {"form": form_values.get(action_key, {}), "reason": "permission_denied"}}
     elif not api_configured:
         result = {
             "status": "error",
-            "title": "Web API Р Р…Р Вµ Р Р…Р В°РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р…Р С•",
-            "message": "Р Р€Р С”Р В°Р В¶Р С‘РЎвЂљР Вµ WEBAPI_BASE_URL Р С‘ WEBAPI_API_KEY Р Р† .env, Р В·Р В°РЎвЂљР ВµР С Р С—Р ВµРЎР‚Р ВµР В·Р В°Р С—РЎС“РЎРѓРЎвЂљР С‘РЎвЂљР Вµ Р С—РЎР‚Р С‘Р В»Р С•Р В¶Р ВµР Р…Р С‘Р Вµ.",
+            "title": _t(locale, "actions.error.api_disabled.title"),
+            "message": _t(locale, "actions.error.api_disabled.message"),
         }
         audit_meta = {"payload": {"reason": "webapi_not_configured"}}
     else:
         try:
-            if rate_limiter and security_settings.rate_limit_count > 0 and security_settings.rate_limit_period_seconds > 0 and "superadmin" not in roles:
+            if (
+                rate_limiter
+                and security_settings.rate_limit_count > 0
+                and security_settings.rate_limit_period_seconds > 0
+                and "superadmin" not in roles
+            ):
                 rate_limiter.hit(
                     (current_admin.id, action_key),
                     limit=security_settings.rate_limit_count,
@@ -556,27 +522,34 @@ async def admin_actions_submit(
 
             token = form.get("_csrf_token") or request.headers.get(settings.csrf_token_header)
             if not token:
-                raise CSRFAuthError(status_code=400, detail="CSRF-РЎвЂљР С•Р С”Р ВµР Р… Р С•РЎвЂљРЎРѓРЎС“РЎвЂљРЎРѓРЎвЂљР Р†РЎС“Р ВµРЎвЂљ.")
+                raise CSRFAuthError(status_code=400, detail={"code": "csrf.missing"})
             validate_csrf_token(token)
             payload_form = form_values.setdefault(action_key, {})
-            result = await _execute_action(action_key, payload_form, security_settings)
+            result = await _execute_action(action_key, payload_form, security_settings, locale)
         except CSRFAuthError as exc:
+            code = "csrf.invalid_format"
+            if isinstance(exc.detail, dict):
+                code = exc.detail.get("code", code)
             result = {
                 "status": "error",
-                "title": "CSRF-Р С—РЎР‚Р С•Р Р†Р ВµРЎР‚Р С”Р В° Р Р…Р Вµ Р С—РЎР‚Р С•Р в„–Р Т‘Р ВµР Р…Р В°",
-                "message": exc.detail,
+                "title": _t(locale, "actions.error.csrf.title"),
+                "message": translate(code, locale=locale),
             }
             audit_meta = {
                 "payload": {
                     "form": form_values.get(action_key, {}),
                     "error": "csrf_failed",
+                    "code": code,
                 }
             }
         except RateLimitExceeded as exc:
+            code = "rate_limit.exceeded"
+            if isinstance(exc.detail, dict):
+                code = exc.detail.get("code", code)
             result = {
                 "status": "error",
-                "title": "Р РЋР В»Р С‘РЎв‚¬Р С”Р С•Р С Р СР Р…Р С•Р С–Р С• Р В·Р В°Р С—РЎР‚Р С•РЎРѓР С•Р Р†",
-                "message": exc.detail,
+                "title": _t(locale, "actions.error.rate_limit.title"),
+                "message": translate(code, locale=locale),
             }
             audit_meta = {
                 "payload": {
@@ -587,7 +560,7 @@ async def admin_actions_submit(
         except ActionValidationError as exc:
             result = {
                 "status": "error",
-                "title": "Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р Р†Р В°Р В»Р С‘Р Т‘Р В°РЎвЂ Р С‘Р С‘",
+                "title": _t(locale, "actions.error.validation.title"),
                 "message": str(exc),
             }
             audit_meta = {
@@ -599,7 +572,7 @@ async def admin_actions_submit(
         except WebAPIConfigurationError as exc:
             result = {
                 "status": "error",
-                "title": "Web API Р Р…Р ВµР Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р Р…Р С•",
+                "title": _t(locale, "actions.error.webapi.title"),
                 "message": str(exc),
             }
             audit_meta = {
@@ -614,7 +587,7 @@ async def admin_actions_submit(
                 detail = f"{detail} (HTTP {exc.status_code})"
             result = {
                 "status": "error",
-                "title": "Web API Р С•РЎвЂљР Р†Р ВµРЎвЂљР С‘Р В»Р С• Р С•РЎв‚¬Р С‘Р В±Р С”Р С•Р в„–",
+                "title": _t(locale, "actions.error.webapi.title"),
                 "message": detail,
             }
             audit_meta = {
@@ -625,11 +598,11 @@ async def admin_actions_submit(
                 }
             }
         except Exception as exc:  # pragma: no cover
-            logger.exception("Р СњР Вµ РЎС“Р Т‘Р В°Р В»Р С•РЎРѓРЎРЉ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р С‘РЎвЂљРЎРЉ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р Вµ %s", action_key)
+            logger.exception("Unexpected error while executing action %s", action_key)
             result = {
                 "status": "error",
-                "title": "Р СњР ВµР С—РЎР‚Р ВµР Т‘Р Р†Р С‘Р Т‘Р ВµР Р…Р Р…Р В°РЎРЏ Р С•РЎв‚¬Р С‘Р В±Р С”Р В°",
-                "message": f"Р вЂ”Р В°Р С—РЎР‚Р С•РЎРѓ Р Р…Р Вµ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…: {exc}",
+                "title": _t(locale, "actions.error.unexpected.title"),
+                "message": str(exc),
             }
             audit_meta = {
                 "payload": {
@@ -652,17 +625,6 @@ async def admin_actions_submit(
             log_payload = form_values.get(action_key)
         if log_payload is not None and not isinstance(log_payload, dict):
             log_payload = {"value": str(log_payload)}
-
-        await log_admin_action(
-            admin_id=current_admin.id,
-            action=action_key,
-            status=result.get("status", "error"),
-            message=result.get("message"),
-            target_type=target_type,
-            target_id=target_id,
-            payload=log_payload if isinstance(log_payload, dict) else None,
-            request=request,
-        )
 
     context: Dict[str, Any] = {
         "request": request,

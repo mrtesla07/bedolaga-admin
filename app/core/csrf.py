@@ -44,22 +44,22 @@ def validate_csrf_token(token: str) -> None:
     try:
         raw = base64.urlsafe_b64decode(token.encode("utf-8"))
     except Exception as exc:
-        raise CSRFAuthError(status_code=400, detail="Неверный формат CSRF-токена.") from exc
+        raise CSRFAuthError(status_code=400, detail={"code": "csrf.invalid_format"}) from exc
 
     if len(raw) != 8 + 16 + 32:
-        raise CSRFAuthError(status_code=400, detail="Неверный формат CSRF-токена.")
+        raise CSRFAuthError(status_code=400, detail={"code": "csrf.invalid_length"})
 
     payload = raw[:24]
     signature = raw[24:]
     expected_signature = hmac.new(_get_secret(), payload, digestmod=hashlib.sha256).digest()
     if not hmac.compare_digest(signature, expected_signature):
-        raise CSRFAuthError(status_code=403, detail="CSRF-проверка не пройдена.")
+        raise CSRFAuthError(status_code=403, detail={"code": "csrf.invalid_signature"})
 
     timestamp = int.from_bytes(payload[:8], "big")
     issued_at = datetime.fromtimestamp(timestamp, tz=timezone.utc)
     expires_at = issued_at + timedelta(minutes=settings.csrf_token_expire_minutes)
     if datetime.now(tz=timezone.utc) > expires_at:
-        raise CSRFAuthError(status_code=400, detail="CSRF-токен истёк.")
+        raise CSRFAuthError(status_code=400, detail={"code": "csrf.expired"})
 
 
 def issue_csrf(response: Response) -> str:
