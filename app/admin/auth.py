@@ -18,6 +18,7 @@ class BedolagaAuthenticationBackend(AuthenticationBackend):
     def __init__(self, session_factory: Callable[[], AsyncSession], *, session_key: str = "bedolaga_admin") -> None:
         self._session_factory = session_factory
         self._session_key = session_key
+        self.session_key = session_key
 
     async def login(self, request: Request) -> bool:
         """Авторизация через обычную форму SQLAdmin."""

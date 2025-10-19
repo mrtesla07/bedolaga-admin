@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Админ-действия (черновик) — Bedolaga Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            color-scheme: light dark;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.5;
+        }
+        body {
+            margin: 0;
+            padding: 2rem 1rem 3rem;
+            background: #f8fafc;
+        }
+        header {
+            max-width: 900px;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        a.back {
+            text-decoration: none;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            display: grid;
+            gap: 1.5rem;
+        }
+        section.card {
+            background: white;
+            border-radius: 14px;
+            padding: 1.5rem;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+        section.card h2 {
+            margin: 0 0 0.5rem;
+            font-size: 1.35rem;
+        }
+        section.card p {
+            margin: 0 0 1.25rem;
+            color: #475569;
+        }
+        form button {
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1.2rem;
+            font-weight: 600;
+            color: white;
+            background: #6366f1;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        form button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+        .alert-info {
+            background: #eef2ff;
+            color: #3730a3;
+        }
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        footer {
+            max-width: 900px;
+            margin: 2rem auto 0;
+            color: #64748b;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        @media (prefers-color-scheme: dark) {
+            body { background: #0f172a; color: #e2e8f0; }
+            section.card { background: #0b1120; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.6); }
+            section.card p { color: #94a3b8; }
+            form button { background: #4f46e5; }
+            form button:hover { box-shadow: 0 10px 20px rgba(79, 70, 229, 0.4); }
+            .alert-info { background: rgba(99, 102, 241, 0.15); color: #c7d2fe; }
+            .alert-error { background: rgba(248, 113, 113, 0.15); color: #fecaca; }
+            a.back { color: #a5b4fc; }
+            footer { color: #94a3b8; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Черновые действия веб-API</h1>
+        <a class="back" href="/admin/">← Назад в панель</a>
+    </header>
+    <main>
+        {% if result %}
+        <div class="alert alert-{{ result.status }}">
+            <strong>{{ result.title }}</strong><br>
+            {{ result.message }}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <strong>Пока без интеграции.</strong><br>
+            Ниже перечислены планируемые действия. При нажатии выводится уведомление, фактические вызовы API будут реализованы в следующей итерации.
+        </div>
+        {% endif %}
+
+        {% for action in actions %}
+        <section class="card">
+            <h2>{{ action.title }}</h2>
+            <p>{{ action.description }}</p>
+            <form method="post" action="/admin/actions">
+                <input type="hidden" name="action" value="{{ action.key }}">
+                <button type="submit">Запустить (пока заглушка)</button>
+            </form>
+        </section>
+        {% endfor %}
+    </main>
+    <footer>
+        Вход выполнен как: {{ admin.full_name or admin.email }}. Страница предназначена для отладки будущей интеграции.
+    </footer>
+</body>
+</html>
