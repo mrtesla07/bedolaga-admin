@@ -96,6 +96,8 @@ class AdminSecuritySettings(Base):
     balance_hard_limit_rub: Mapped[int] = mapped_column(Integer, default=100000, nullable=False)
     require_balance_confirmation: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     require_block_confirmation: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    rate_limit_count: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    rate_limit_period_seconds: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -112,5 +114,7 @@ class AdminSecuritySettings(Base):
             "balance_hard_limit_rub": self.balance_hard_limit_rub,
             "require_balance_confirmation": self.require_balance_confirmation,
             "require_block_confirmation": self.require_block_confirmation,
+            "rate_limit_count": self.rate_limit_count,
+            "rate_limit_period_seconds": self.rate_limit_period_seconds,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

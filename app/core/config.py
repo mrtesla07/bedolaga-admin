@@ -1,4 +1,4 @@
-"""Загрузка и доступ к конфигурации приложения."""
+"""Application configuration settings."""
 
 from functools import lru_cache
 
@@ -35,5 +35,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Кэшируемые настройки, чтобы не перечитывать .env."""
+    """Returns cached application settings."""
     return Settings()

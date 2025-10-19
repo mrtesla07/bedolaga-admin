@@ -1,1 +1,1 @@
-"""Базовые настройки и утилиты."""
+"""Core utilities for Bedolaga Admin."""

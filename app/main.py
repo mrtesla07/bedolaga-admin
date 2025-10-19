@@ -29,6 +29,7 @@ from app.db.base import Base
 from app.db.session import AsyncSessionFactory, engine
 from app.models import AdminSecuritySettings, AdminUser, Subscription, UserStatus
 from app.services.audit import log_admin_action
+from app.services.rate_limiter import RateLimitExceeded, RateLimiter
 from app.services.webapi import (
     WebAPIConfigurationError,
     WebAPIRequestError,
@@ -481,6 +482,8 @@ async def admin_actions_submit(
     allowed_actions = _build_allowed_actions(permissions)
     api_configured = is_webapi_configured()
     security_settings = await _get_security_settings()
+    roles = getattr(request.state, "admin_roles", set())
+    rate_limiter: RateLimiter | None = getattr(request.app.state, "rate_limiter", None)
 
     form_values: Dict[str, Dict[str, Any]] = {}
     if action_meta:
@@ -528,6 +531,13 @@ async def admin_actions_submit(
         audit_meta = {"payload": {"reason": "webapi_not_configured"}}
     else:
         try:
+            if rate_limiter and security_settings.rate_limit_count > 0 and security_settings.rate_limit_period_seconds > 0 and "superadmin" not in roles:
+                rate_limiter.hit(
+                    (current_admin.id, action_key),
+                    limit=security_settings.rate_limit_count,
+                    period=security_settings.rate_limit_period_seconds,
+                )
+
             token = form.get("_csrf_token") or request.headers.get(settings.csrf_token_header)
             if not token:
                 raise CSRFAuthError(status_code=400, detail="CSRF-токен отсутствует.")
@@ -544,6 +554,18 @@ async def admin_actions_submit(
                 "payload": {
                     "form": form_values.get(action_key, {}),
                     "error": "csrf_failed",
+                }
+            }
+        except RateLimitExceeded as exc:
+            result = {
+                "status": "error",
+                "title": "Слишком много запросов",
+                "message": exc.detail,
+            }
+            audit_meta = {
+                "payload": {
+                    "form": form_values.get(action_key, {}),
+                    "error": "rate_limit",
                 }
             }
         except ActionValidationError as exc:
@@ -662,6 +684,7 @@ async def on_startup() -> None:
 
     app.state.admin_exists = await _admin_account_exists()
     await _ensure_security_settings()
+    app.state.rate_limiter = RateLimiter()
 
 
 @app.on_event("shutdown")

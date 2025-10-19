@@ -1,16 +1,16 @@
-"""Маппинг ролей и разрешений администраторов."""
+"""Mapping between admin roles and permissions."""
 
 from __future__ import annotations
 
 from typing import Iterable, Mapping, Set
 
 
-# Глобальные разрешения
+# Global permissions
 PERM_VIEW_READONLY = "admin.read"
 PERM_MANAGE_USERS = "admin.users.manage"
 PERM_MANAGE_ROLES = "admin.roles.manage"
-PERM_VIEW_AUDIT = "admin.audit.view"
 PERM_MANAGE_SECURITY = "admin.security.manage"
+PERM_VIEW_AUDIT = "admin.audit.view"
 
 PERM_ACTION_EXTEND = "actions.extend_subscription"
 PERM_ACTION_BALANCE = "actions.recharge_balance"
@@ -44,7 +44,7 @@ ROLE_PERMISSIONS: Mapping[str, Set[str]] = {
 
 
 def merge_permissions(role_slugs: Iterable[str]) -> Set[str]:
-    """Возвращает множество разрешений для переданных ролей."""
+    """Collect permissions granted by the given roles."""
     perms: Set[str] = set()
     for slug in role_slugs:
         perms.update(ROLE_PERMISSIONS.get(slug, set()))
@@ -52,5 +52,5 @@ def merge_permissions(role_slugs: Iterable[str]) -> Set[str]:
 
 
 def has_permission(permissions: Set[str], required: str) -> bool:
-    """Проверяет наличие разрешения."""
+    """Check whether permission set contains required permission."""
     return required in permissions

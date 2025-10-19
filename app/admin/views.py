@@ -168,6 +168,8 @@ class SecuritySettingsAdmin(ProtectedModelView, model=AdminSecuritySettings):
         AdminSecuritySettings.balance_hard_limit_rub,
         AdminSecuritySettings.require_balance_confirmation,
         AdminSecuritySettings.require_block_confirmation,
+        AdminSecuritySettings.rate_limit_count,
+        AdminSecuritySettings.rate_limit_period_seconds,
         AdminSecuritySettings.updated_at,
     ]
     column_labels = {
@@ -175,6 +177,8 @@ class SecuritySettingsAdmin(ProtectedModelView, model=AdminSecuritySettings):
         AdminSecuritySettings.balance_hard_limit_rub: "Жёсткий лимит (₽)",
         AdminSecuritySettings.require_balance_confirmation: "Требовать подтверждение суммы",
         AdminSecuritySettings.require_block_confirmation: "Требовать подтверждение блокировки",
+        AdminSecuritySettings.rate_limit_count: "Макс. операций",
+        AdminSecuritySettings.rate_limit_period_seconds: "Окно (сек)",
         AdminSecuritySettings.updated_at: "Обновлено",
     }
     form_columns = [
@@ -182,6 +186,8 @@ class SecuritySettingsAdmin(ProtectedModelView, model=AdminSecuritySettings):
         AdminSecuritySettings.balance_hard_limit_rub,
         AdminSecuritySettings.require_balance_confirmation,
         AdminSecuritySettings.require_block_confirmation,
+        AdminSecuritySettings.rate_limit_count,
+        AdminSecuritySettings.rate_limit_period_seconds,
     ]
 
 

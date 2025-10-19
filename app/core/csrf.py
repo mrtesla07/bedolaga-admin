@@ -1,4 +1,4 @@
-"""Простая реализация CSRF-токенов на основе HMAC."""
+"""Simple CSRF token utilities based on HMAC."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from app.core.config import get_settings
 
 
 class CSRFAuthError(HTTPException):
-    """Ошибка проверки CSRF."""
+    """Raised when CSRF validation fails."""
 
 
 def _get_secret() -> bytes:
@@ -28,8 +28,7 @@ def _timestamp_now() -> int:
 
 
 def generate_csrf_token() -> str:
-    """Создаёт токен в формате base64(timestamp.random.signature)."""
-    settings = get_settings()
+    """Generate a token: base64(timestamp + randomness + signature)."""
     secret = _get_secret()
     timestamp = _timestamp_now()
     randomness = os.urandom(16)
@@ -40,7 +39,7 @@ def generate_csrf_token() -> str:
 
 
 def validate_csrf_token(token: str) -> None:
-    """Проверяет целостность и срок действия токена."""
+    """Ensure token is valid and not expired."""
     settings = get_settings()
     try:
         raw = base64.urlsafe_b64decode(token.encode("utf-8"))
@@ -64,14 +63,14 @@ def validate_csrf_token(token: str) -> None:
 
 
 def issue_csrf(response: Response) -> str:
-    """Генерирует токен и записывает его в cookie."""
+    """Generate token and write into cookie."""
     settings = get_settings()
     token = generate_csrf_token()
     response.set_cookie(
         key=settings.csrf_token_cookie,
         value=token,
         httponly=False,
-        secure=False,  # TODO: включить на проде
+        secure=False,
         samesite="lax",
         max_age=settings.csrf_token_expire_minutes * 60,
     )
@@ -79,6 +78,7 @@ def issue_csrf(response: Response) -> str:
 
 
 def get_csrf_token(request: Request) -> str | None:
+    """Fetch token from header or cookie."""
     settings = get_settings()
     header = request.headers.get(settings.csrf_token_header)
     if header:
