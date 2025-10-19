@@ -32,6 +32,7 @@ from app.models import AdminSecuritySettings, AdminUser, Subscription, UserStatu
 from app.services.audit import log_admin_action
 from app.services.rate_limiter import RateLimitExceeded, RateLimiter
 from app.services.roles import ensure_default_roles
+from app.i18n import translate
 from app.services.webapi import (
     WebAPIConfigurationError,
     WebAPIRequestError,
@@ -48,6 +49,7 @@ app = FastAPI(title=settings.app_name, debug=settings.debug)
 app.state.admin_exists = False
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+templates.env.globals['translate'] = translate
 
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from '_macros.html' import display_menu %}
+{% from 'i18n/macros.html' import tr, trf %}
 
 {% block head %}
   {{ super() }}
@@ -10,26 +11,26 @@
 <div class="admin-shell">
   <aside class="admin-shell__sidebar">
     <div class="admin-shell__logo">
-      <a href="{{ url_for('admin:index') }}" title="Домой">
-        <img src="{{ url_for('static', path='bedolaga-logo.svg') }}" alt="Логотип Bedolaga">
+      <a href="{{ url_for('admin:index') }}" title="{{ tr('nav.dashboard') }}">
+        <img src="{{ url_for('static', path='bedolaga-logo.svg') }}" alt="Bedolaga logo">
       </a>
       <div class="admin-shell__brand">
         <h1>{{ admin.title or 'Bedolaga Admin' }}</h1>
-        <p>Панель управления экосистемой Bedolaga</p>
+        <p>{{ tr('layout.subtitle') }}</p>
       </div>
     </div>
 
     <nav>
       <ul class="sqladmin-nav">
         {{ display_menu(admin._menu, request) }}
-        <li><a href="{{ url_for('admin:index') }}">Обзор моделей</a></li>
-        <li><a href="/admin/actions">Действия web API</a></li>
+        <li><a href="{{ url_for('admin:index') }}">{{ tr('nav.overview') }}</a></li>
+        <li><a href="/admin/actions">{{ tr('nav.actions') }}</a></li>
       </ul>
     </nav>
 
     {% if admin.authentication_backend %}
     <div class="admin-shell__logout">
-      <a href="{{ request.url_for('admin:logout') }}">Выход</a>
+      <a href="{{ request.url_for('admin:logout') }}">{{ tr('nav.logout') }}</a>
     </div>
     {% endif %}
   </aside>
@@ -39,16 +40,16 @@
       <div class="admin-shell__status">
         <span class="title">{{ title }}</span>
         <div class="chips">
-          <span class="chip chip--success">SQLAdmin</span>
-          <span class="chip">{{ request.url.path }}</span>
+          <span class="chip chip--success">{{ tr('layout.sqladmin') }}</span>
+          <span class="chip">{{ trf('layout.path', path=request.url.path) }}</span>
         </div>
       </div>
       <div class="admin-shell__user">
         {% if request.state.admin_user %}
-          <span>{{ request.state.admin_user.full_name or request.state.admin_user.email }}</span>
+          <span>{{ trf('layout.welcome', user=request.state.admin_user.full_name or request.state.admin_user.email) }}</span>
           <span>{{ request.state.admin_user.email }}</span>
         {% else %}
-          <span>Гость панели</span>
+          <span>{{ tr('layout.guest') }}</span>
         {% endif %}
       </div>
     </header>
