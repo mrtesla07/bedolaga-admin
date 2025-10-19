@@ -9,6 +9,7 @@ from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from starlette.middleware.sessions import SessionMiddleware
@@ -47,6 +48,14 @@ app = FastAPI(title=settings.app_name, debug=settings.debug)
 app.state.admin_exists = False
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(static_dir)),
+        name="static",
+    )
 
 app.add_middleware(
     SessionMiddleware,
