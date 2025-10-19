@@ -11,9 +11,12 @@ from app.models.bot_entities import (
     User,
     UserStatus,
 )
+from app.models.security import AdminActivityLog, AdminRole
 
 __all__ = [
     "AdminUser",
+    "AdminRole",
+    "AdminActivityLog",
     "User",
     "Subscription",
     "Transaction",

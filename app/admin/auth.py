@@ -5,9 +5,11 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 
+from app.core.permissions import merge_permissions
 from app.core.security import verify_password
 from app.models import AdminUser
 
@@ -60,18 +62,38 @@ class BedolagaAuthenticationBackend(AuthenticationBackend):
             return False
 
         async with self._session_factory() as session:
-            user = await session.get(AdminUser, user_pk)
+            stmt = (
+                select(AdminUser)
+                .options(selectinload(AdminUser.roles))
+                .where(AdminUser.id == user_pk)
+            )
+            result = await session.execute(stmt)
+            user = result.scalar_one_or_none()
 
         if not user or not user.is_active:
             request.session.pop(self._session_key, None)
             return False
 
-        request.state.admin_user = user
+        self._apply_permissions(request, user)
         return True
+
+    def _apply_permissions(self, request: Request, user: AdminUser) -> None:
+        request.state.admin_user = user
+        role_slugs = {role.slug for role in getattr(user, "roles", [])}
+        if not role_slugs and user.is_superuser:
+            role_slugs.add("superadmin")
+        permissions = merge_permissions(role_slugs)
+        request.state.admin_roles = role_slugs
+        request.state.admin_permissions = permissions
 
     @staticmethod
     async def _get_user_by_email(session: AsyncSession, *, email: str) -> AdminUser | None:
-        result = await session.execute(select(AdminUser).where(AdminUser.email == email))
+        stmt = (
+            select(AdminUser)
+            .options(selectinload(AdminUser.roles))
+            .where(AdminUser.email == email)
+        )
+        result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     @staticmethod

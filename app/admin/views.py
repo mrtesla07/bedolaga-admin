@@ -1,8 +1,23 @@
-"""Представления SQLAdmin для админов и сущностей бота."""
+"""Представления SQLAdmin для администраторов и сущностей бота."""
+
+from __future__ import annotations
 
 from sqladmin import ModelView
+from starlette.requests import Request
 
+from app.core.permissions import (
+    PERM_ACTION_BALANCE,
+    PERM_ACTION_BLOCK,
+    PERM_ACTION_EXTEND,
+    PERM_ACTION_SYNC,
+    PERM_MANAGE_ROLES,
+    PERM_MANAGE_USERS,
+    PERM_VIEW_AUDIT,
+    PERM_VIEW_READONLY,
+)
 from app.models import (
+    AdminActivityLog,
+    AdminRole,
     AdminUser,
     PaymentMethod,
     Subscription,
@@ -12,6 +27,7 @@ from app.models import (
     User,
     UserStatus,
 )
+from app.services.audit import log_admin_action
 
 USER_STATUS_CHOICES = [
     (UserStatus.ACTIVE.value, "Активен"),
@@ -45,12 +61,45 @@ PAYMENT_METHOD_CHOICES = [
 ]
 
 
-class AdminUserAdmin(ModelView, model=AdminUser):
-    """CRUD для администраторов панели."""
+class ProtectedModelView(ModelView):
+    """Базовый класс с проверкой разрешений."""
+
+    required_permissions: set[str] = set()
+
+    def is_accessible(self, request: Request) -> bool:  # type: ignore[override]
+        if not self.required_permissions:
+            return True
+        permissions = getattr(request.state, "admin_permissions", set())
+        return permissions.issuperset(self.required_permissions)
+
+    def is_visible(self, request: Request) -> bool:  # type: ignore[override]
+        return self.is_accessible(request)
+
+
+class AdminUserAdmin(ProtectedModelView, model=AdminUser):
+    """Управление аккаунтами администраторов."""
 
     name_plural = "Администраторы"
+    icon = "fa-solid fa-user-gear"
+    required_permissions = {PERM_MANAGE_USERS}
 
-    column_list = [AdminUser.id, AdminUser.email, AdminUser.is_active, AdminUser.is_superuser, AdminUser.created_at]
+    can_create = False
+    can_delete = False
+    form_ajax_refs = {
+        "roles": {
+            "fields": ("slug", "name"),
+        }
+    }
+
+    column_list = [
+        AdminUser.id,
+        AdminUser.email,
+        AdminUser.full_name,
+        AdminUser.is_active,
+        AdminUser.is_superuser,
+        "role_slugs",
+        AdminUser.created_at,
+    ]
     column_searchable_list = [AdminUser.email, AdminUser.full_name]
     column_sortable_list = [AdminUser.id, AdminUser.email, AdminUser.created_at]
     column_labels = {
@@ -58,6 +107,7 @@ class AdminUserAdmin(ModelView, model=AdminUser):
         AdminUser.full_name: "Имя",
         AdminUser.is_active: "Активен",
         AdminUser.is_superuser: "Суперпользователь",
+        "role_slugs": "Роли",
         AdminUser.created_at: "Создан",
     }
 
@@ -66,16 +116,64 @@ class AdminUserAdmin(ModelView, model=AdminUser):
         AdminUser.full_name,
         AdminUser.is_active,
         AdminUser.is_superuser,
+        AdminUser.roles,
+    ]
+    form_excluded_columns = [AdminUser.hashed_password, AdminUser.activity_logs]
+    column_details_list = [
+        AdminUser.id,
+        AdminUser.email,
+        AdminUser.full_name,
+        "role_slugs",
+        AdminUser.is_active,
+        AdminUser.is_superuser,
+        AdminUser.created_at,
     ]
 
-    form_excluded_columns = [AdminUser.hashed_password]
+    async def after_model_change(self, data: dict, model: AdminUser, is_created: bool) -> None:  # type: ignore[override]
+        """Логирование изменений админских аккаунтов."""
+        actor = getattr(self, "identity", None)
+        actor_id = getattr(actor, "id", None)
+        await log_admin_action(
+            admin_id=actor_id,
+            action="admin_user_update",
+            status="success",
+            message="Профиль администратора обновлён" if not is_created else "Администратор создан",
+            target_type="admin_user",
+            target_id=str(model.id),
+            payload={
+                "email": model.email,
+                "roles": [role.slug for role in model.roles],
+                "is_active": model.is_active,
+                "is_superuser": model.is_superuser,
+            },
+            request=None,
+        )
 
-    can_create = False  # создание только через setup/скрипт
+
+class AdminRoleAdmin(ProtectedModelView, model=AdminRole):
+    """Роли администраторов."""
+
+    name = "Роль"
+    name_plural = "Роли"
+    icon = "fa-solid fa-key"
+    required_permissions = {PERM_MANAGE_ROLES}
+
+    column_list = [AdminRole.id, AdminRole.slug, AdminRole.name, AdminRole.description, AdminRole.created_at]
+    column_sortable_list = [AdminRole.id, AdminRole.slug, AdminRole.name, AdminRole.created_at]
+    column_searchable_list = [AdminRole.slug, AdminRole.name]
+    column_labels = {
+        AdminRole.slug: "Slug",
+        AdminRole.name: "Название",
+        AdminRole.description: "Описание",
+        AdminRole.created_at: "Создана",
+    }
+    form_columns = [AdminRole.slug, AdminRole.name, AdminRole.description]
 
 
-class ReadOnlyModelView(ModelView):
+class ReadOnlyModelView(ProtectedModelView):
     """Блокировка destructive-операций для данных бота."""
 
+    required_permissions = {PERM_VIEW_READONLY}
     can_create = False
     can_edit = False
     can_delete = False
@@ -168,6 +266,7 @@ class SubscriptionAdmin(ReadOnlyModelView, model=Subscription):
     name = "Подписка"
     name_plural = "Подписки"
     icon = "fa-solid fa-clock-rotate-left"
+    required_permissions = ReadOnlyModelView.required_permissions
 
     column_list = [
         Subscription.id,
@@ -199,7 +298,7 @@ class SubscriptionAdmin(ReadOnlyModelView, model=Subscription):
         Subscription.user_id: "ID пользователя",
         "user_display": "Пользователь",
         Subscription.status: "Статус",
-        "status_display": "Отображение статуса",
+        "status_display": "Описание статуса",
         Subscription.is_trial: "Триал",
         Subscription.autopay_enabled: "Автоплатёж",
         Subscription.start_date: "Начало",
@@ -239,6 +338,7 @@ class TransactionAdmin(ReadOnlyModelView, model=Transaction):
     name = "Транзакция"
     name_plural = "Транзакции"
     icon = "fa-solid fa-money-check"
+    required_permissions = ReadOnlyModelView.required_permissions
     column_default_sort = (Transaction.created_at, True)
 
     column_list = [
@@ -300,9 +400,75 @@ class TransactionAdmin(ReadOnlyModelView, model=Transaction):
     }
 
 
+class AdminActivityLogAdmin(ReadOnlyModelView, model=AdminActivityLog):
+    """Журнал действий администраторов."""
+
+    name = "Журнал действий"
+    name_plural = "Журнал действий"
+    icon = "fa-solid fa-clipboard-list"
+    required_permissions = {PERM_VIEW_AUDIT}
+    page_size = 100
+
+    column_list = [
+        AdminActivityLog.id,
+        AdminActivityLog.created_at,
+        AdminActivityLog.admin_id,
+        "admin_email",
+        AdminActivityLog.action,
+        AdminActivityLog.status,
+        AdminActivityLog.target_type,
+        AdminActivityLog.target_id,
+    ]
+    column_sortable_list = [
+        AdminActivityLog.id,
+        AdminActivityLog.created_at,
+        AdminActivityLog.status,
+        AdminActivityLog.target_type,
+    ]
+    column_filters = [
+        AdminActivityLog.status,
+        AdminActivityLog.action,
+        AdminActivityLog.target_type,
+    ]
+    column_searchable_list = [
+        AdminActivityLog.action,
+        AdminActivityLog.message,
+        AdminActivityLog.ip_address,
+        AdminActivityLog.user_agent,
+    ]
+    column_labels = {
+        AdminActivityLog.created_at: "Дата",
+        AdminActivityLog.admin_id: "ID администратора",
+        "admin_email": "Email администратора",
+        AdminActivityLog.action: "Действие",
+        AdminActivityLog.status: "Статус",
+        AdminActivityLog.target_type: "Тип объекта",
+        AdminActivityLog.target_id: "ID объекта",
+        AdminActivityLog.message: "Сообщение",
+        AdminActivityLog.ip_address: "IP",
+        AdminActivityLog.user_agent: "User-Agent",
+    }
+    column_details_list = [
+        AdminActivityLog.id,
+        AdminActivityLog.created_at,
+        AdminActivityLog.admin_id,
+        "admin_email",
+        AdminActivityLog.action,
+        AdminActivityLog.status,
+        AdminActivityLog.target_type,
+        AdminActivityLog.target_id,
+        AdminActivityLog.message,
+        AdminActivityLog.payload_json,
+        AdminActivityLog.ip_address,
+        AdminActivityLog.user_agent,
+    ]
+
+
 admin_views = [
     AdminUserAdmin,
+    AdminRoleAdmin,
     BotUserAdmin,
     SubscriptionAdmin,
     TransactionAdmin,
+    AdminActivityLogAdmin,
 ]

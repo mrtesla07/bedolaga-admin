@@ -21,6 +21,11 @@ class Settings(BaseSettings):
         validation_alias="DATABASE_URL",
     )
 
+    csrf_secret_key: str = Field(default="change-me", validation_alias="CSRF_SECRET_KEY")
+    csrf_token_header: str = Field(default="X-CSRF-Token", validation_alias="CSRF_HEADER_NAME")
+    csrf_token_cookie: str = Field(default="bedolaga_csrf", validation_alias="CSRF_COOKIE_NAME")
+    csrf_token_expire_minutes: int = Field(default=30, validation_alias="CSRF_TOKEN_EXPIRE_MINUTES")
+
     webapi_base_url: str | None = Field(default=None, validation_alias="WEBAPI_BASE_URL")
     webapi_api_key: str | None = Field(default=None, validation_alias="WEBAPI_API_KEY")
     webapi_timeout: float = Field(default=10.0, validation_alias="WEBAPI_TIMEOUT_SECONDS")

@@ -1,11 +1,18 @@
 """Модель администратора."""
 
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Integer, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.security import admin_user_roles
+
+if TYPE_CHECKING:  # pragma: no cover
+    from app.models.security import AdminActivityLog, AdminRole
 
 
 class AdminUser(Base):
@@ -25,5 +32,24 @@ class AdminUser(Base):
         nullable=False,
     )
 
+    roles: Mapped[list["AdminRole"]] = relationship(
+        "AdminRole",
+        secondary=admin_user_roles,
+        back_populates="users",
+        lazy="selectin",
+    )
+
+    activity_logs: Mapped[list["AdminActivityLog"]] = relationship(
+        "AdminActivityLog",
+        back_populates="admin",
+        lazy="selectin",
+    )
+
     def __repr__(self) -> str:
         return f"<AdminUser email={self.email!r}>"
+
+    @property
+    def role_slugs(self) -> str:
+        if self.roles:
+            return ", ".join(sorted(role.slug for role in self.roles))
+        return "—"

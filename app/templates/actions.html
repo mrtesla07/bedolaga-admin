@@ -104,6 +104,11 @@
             height: 1.1rem;
             accent-color: #6366f1;
         }
+        .note {
+            margin-top: 0.5rem;
+            color: #ef4444;
+            font-size: 0.95rem;
+        }
         form button {
             border: none;
             border-radius: 10px;
@@ -162,6 +167,7 @@
             .alert-error { background: rgba(248, 113, 113, 0.15); color: #fecaca; }
             a.back { color: #a5b4fc; }
             footer { color: #94a3b8; }
+            .note { color: #fca5a5; }
         }
     </style>
 </head>
@@ -182,7 +188,7 @@
         <div class="alert alert-error">
             <strong>Web API недоступно.</strong><br>
             Укажите переменные <code>WEBAPI_BASE_URL</code> и <code>WEBAPI_API_KEY</code>, затем перезапустите приложение. Формы ниже временно выключены.
-        </div>
+                </div>
         {% endif %}
 
         {% if not result and api_configured %}
@@ -195,18 +201,20 @@
         {% for action in actions %}
         {% set values = form_values.get(action.key, {}) %}
         {% set is_active = submitted_action == action.key %}
+        {% set permitted = allowed_actions.get(action.key, False) %}
         <section class="card{% if is_active %} active{% endif %}">
             <h2>{{ action.title }}</h2>
             <p>{{ action.description }}</p>
             <form method="post" action="/admin/actions">
                 <input type="hidden" name="action" value="{{ action.key }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
                 {% for field in action.get("fields", []) %}
                     {% set value = values.get(field.name) if field.name in values else field.get("default", "") %}
                     {% if field.type == "checkbox" %}
                         {% set checked = value in ["on", "true", "1", 1, True] %}
                         <div class="field checkbox">
                             <label>
-                                <input type="checkbox" name="{{ field.name }}" value="on" {% if checked %}checked{% endif %} {% if not api_configured %}disabled{% endif %}>
+                                <input type="checkbox" name="{{ field.name }}" value="on" {% if checked %}checked{% endif %} {% if not api_configured or not permitted %}disabled{% endif %}>
                                 <span>{{ field.label }}</span>
                             </label>
                         </div>
@@ -214,12 +222,12 @@
                         <div class="field">
                             <label>
                                 <span>{{ field.label }}</span>
-                                <textarea
+                               <textarea
                                     name="{{ field.name }}"
                                     {% if field.rows %}rows="{{ field.rows }}"{% endif %}
                                     {% if field.required %}required{% endif %}
                                     {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
-                                    {% if not api_configured %}disabled{% endif %}
+                                    {% if not api_configured or not permitted %}disabled{% endif %}
                                 >{{ value }}</textarea>
                             </label>
                         </div>
@@ -230,7 +238,7 @@
                                 <select
                                     name="{{ field.name }}"
                                     {% if field.required %}required{% endif %}
-                                    {% if not api_configured %}disabled{% endif %}
+                                    {% if not api_configured or not permitted %}disabled{% endif %}
                                 >
                                     {% for option in field.options %}
                                     <option value="{{ option.value }}" {% if value == option.value %}selected{% endif %}>{{ option.label }}</option>
@@ -250,14 +258,19 @@
                                     {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
                                     {% if field.min is defined %}min="{{ field.min }}"{% endif %}
                                     {% if field.step %}step="{{ field.step }}"{% endif %}
-                                    {% if not api_configured %}disabled{% endif %}
+                                    {% if not api_configured or not permitted %}disabled{% endif %}
                                 >
                             </label>
                         </div>
                     {% endif %}
                 {% endfor %}
-                <button type="submit" {% if not api_configured %}disabled{% endif %}>Запустить действие</button>
+                <button type="submit" {% if not api_configured or not permitted %}disabled{% endif %}>
+                    {% if permitted %}Запустить действие{% else %}Недостаточно прав{% endif %}
+                </button>
             </form>
+            {% if not permitted %}
+            <p class="note">Недостаточно прав для выполнения. Обратитесь к суперпользователю.</p>
+            {% endif %}
         </section>
         {% endfor %}
     </main>

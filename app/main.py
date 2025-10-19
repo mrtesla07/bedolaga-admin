@@ -17,10 +17,18 @@ from sqladmin import Admin
 
 from app.admin import BedolagaAuthenticationBackend, admin_views
 from app.core.config import get_settings
+from app.core.csrf import CSRFAuthError, issue_csrf, validate_csrf_token
+from app.core.permissions import (
+    PERM_ACTION_BALANCE,
+    PERM_ACTION_BLOCK,
+    PERM_ACTION_EXTEND,
+    PERM_ACTION_SYNC,
+)
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import AsyncSessionFactory, engine
 from app.models import AdminUser, Subscription, UserStatus
+from app.services.audit import log_admin_action
 from app.services.webapi import (
     WebAPIConfigurationError,
     WebAPIRequestError,
@@ -60,6 +68,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "key": "extend_subscription",
         "title": "Продлить подписку",
         "description": "Продлевает текущую подписку пользователя через web API.",
+        "permission": PERM_ACTION_EXTEND,
         "fields": [
             {
                 "name": "user_id",
@@ -84,6 +93,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "key": "recharge_balance",
         "title": "Начислить баланс",
         "description": "Начисляет или списывает баланс пользователя с опциональной записью в транзакции.",
+        "permission": PERM_ACTION_BALANCE,
         "fields": [
             {
                 "name": "user_id",
@@ -120,6 +130,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "key": "block_user",
         "title": "Обновить статус пользователя",
         "description": "Переключает статус пользователя между активным и заблокированным.",
+        "permission": PERM_ACTION_BLOCK,
         "fields": [
             {
                 "name": "user_id",
@@ -145,6 +156,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "key": "sync_access",
         "title": "Синхронизация с RemnaWave",
         "description": "Запускает синхронизацию данных между ботом и RemnaWave панелью.",
+        "permission": PERM_ACTION_SYNC,
         "fields": [
             {
                 "name": "mode",
@@ -189,6 +201,21 @@ def _format_sync_message(response: dict[str, Any], default: str) -> str:
         pairs = ", ".join(f"{key}: {value}" for key, value in data.items())
         return f"{detail} ({pairs})"
     return detail
+
+
+def _get_permissions(request: Request) -> set[str]:
+    """Возвращает множество разрешений текущего администратора."""
+    perms = getattr(request.state, "admin_permissions", set())
+    return set(perms)
+
+
+def _build_allowed_actions(permissions: set[str]) -> dict[str, bool]:
+    """Создаёт карту доступных действий."""
+    allowed: dict[str, bool] = {}
+    for action in ADMIN_ACTIONS:
+        required = action.get("permission")
+        allowed[action["key"]] = required is None or required in permissions
+    return allowed
 
 
 def _parse_amount_rubles(value: str | None) -> tuple[int, Decimal]:
@@ -238,6 +265,14 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
             "title": "Подписка продлена",
             "message": message,
             "response": response,
+            "_audit": {
+                "target_type": "subscription",
+                "target_id": str(subscription.id),
+                "payload": {
+                    "input": {"user_id": user_id, "days": days},
+                    "response": response,
+                },
+            },
         }
 
     if action_key == "recharge_balance":
@@ -269,6 +304,19 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
             "title": "Баланс обновлён",
             "message": message,
             "response": response,
+            "_audit": {
+                "target_type": "user",
+                "target_id": str(user_id),
+                "payload": {
+                    "input": {
+                        "amount_kopeks": amount_kopeks,
+                        "amount_rub": f"{amount:.2f}",
+                        "description": description,
+                        "create_transaction": create_transaction,
+                    },
+                    "response": response,
+                },
+            },
         }
 
     if action_key == "block_user":
@@ -289,6 +337,14 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
             "title": "Статус обновлён",
             "message": message,
             "response": response,
+            "_audit": {
+                "target_type": "user",
+                "target_id": str(user_id),
+                "payload": {
+                    "input": {"mode": mode, "status": status_value},
+                    "response": response,
+                },
+            },
         }
 
     if action_key == "sync_access":
@@ -302,18 +358,26 @@ async def _execute_action(action_key: str, form: Dict[str, Any]) -> dict[str, An
         elif mode == "from_panel_update":
             response = await client.sync_from_panel("update_only")
             message = _format_sync_message(response, "Получены обновления из RemnaWave.")
-        elif mode == "sync_statuses":
-            response = await client.sync_subscription_statuses()
-            message = _format_sync_message(response, "Статусы подписок синхронизированы.")
-        else:
-            raise ActionValidationError("Неизвестный режим синхронизации.")
+    elif mode == "sync_statuses":
+        response = await client.sync_subscription_statuses()
+        message = _format_sync_message(response, "Статусы подписок синхронизированы.")
+    else:
+        raise ActionValidationError("Неизвестный режим синхронизации.")
 
-        return {
-            "status": "success",
-            "title": "Синхронизация запущена",
-            "message": message,
-            "response": response,
-        }
+    return {
+        "status": "success",
+        "title": "Синхронизация запущена",
+        "message": message,
+        "response": response,
+        "_audit": {
+            "target_type": "remnawave_sync",
+            "target_id": mode,
+            "payload": {
+                "input": {"mode": mode},
+                "response": response,
+            },
+        },
+    }
 
     raise ActionValidationError("Неизвестное действие.")
 
@@ -444,20 +508,23 @@ async def admin_actions_page(
     request: Request,
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    """Страница с черновыми действиями для интеграции с web API."""
-    api_configured = is_webapi_configured()
-    return templates.TemplateResponse(
-        "actions.html",
-        {
-            "request": request,
-            "admin": current_admin,
-            "actions": ADMIN_ACTIONS,
-            "result": None,
-            "api_configured": api_configured,
-            "form_values": {},
-            "submitted_action": None,
-        },
-    )
+    """Страница действий web API."""
+    permissions = _get_permissions(request)
+    context: Dict[str, Any] = {
+        "request": request,
+        "admin": current_admin,
+        "actions": ADMIN_ACTIONS,
+        "result": None,
+        "api_configured": is_webapi_configured(),
+        "permissions": sorted(permissions),
+        "allowed_actions": _build_allowed_actions(permissions),
+        "form_values": {},
+        "submitted_action": None,
+        "csrf_token": "",
+    }
+    response = templates.TemplateResponse("actions.html", context)
+    context["csrf_token"] = issue_csrf(response)
+    return response
 
 
 @app.post("/admin/actions", include_in_schema=False)
@@ -470,6 +537,8 @@ async def admin_actions_submit(
     action_key = str(form.get("action") or "")
     action_meta = _get_action_meta(action_key)
     form_values: Dict[str, Dict[str, Any]] = {}
+    permissions = _get_permissions(request)
+    allowed_actions = _build_allowed_actions(permissions)
     api_configured = is_webapi_configured()
 
     if action_meta:
@@ -484,33 +553,62 @@ async def admin_actions_submit(
                 collected[name] = form.get(name) or ""
         form_values[action_key] = collected
 
+    audit_meta: dict[str, Any] | None = None
+
     if not action_meta:
         result = {
             "status": "error",
             "title": "Неизвестное действие",
             "message": "Выбранное действие не распознано. Обновите страницу и попробуйте снова.",
         }
+    elif action_meta.get("permission") and action_meta["permission"] not in permissions:
+        result = {
+            "status": "error",
+            "title": "Недостаточно прав",
+            "message": "У вас нет прав на выполнение этого действия.",
+        }
+        form_snapshot = form_values.get(action_key, {})
+        audit_meta = {"payload": {"form": form_snapshot, "reason": "permission_denied"}}
     elif not api_configured:
         result = {
             "status": "error",
             "title": "Web API не настроено",
             "message": "Укажите WEBAPI_BASE_URL и WEBAPI_API_KEY в .env, затем перезапустите приложение.",
         }
+        audit_meta = {"payload": {"reason": "webapi_not_configured"}}
     else:
         try:
+            token = form.get("_csrf_token") or request.headers.get(settings.csrf_token_header)
+            if not token:
+                raise CSRFAuthError(status_code=400, detail="CSRF-токен отсутствует.")
+            validate_csrf_token(token)
             result = await _execute_action(action_key, form_values[action_key])
+        except CSRFAuthError as exc:
+            result = {
+                "status": "error",
+                "title": "CSRF-проверка не пройдена",
+                "message": exc.detail,
+            }
+            audit_meta = {
+                "payload": {
+                    "form": form_values.get(action_key, {}),
+                    "error": "csrf_failed",
+                }
+            }
         except ActionValidationError as exc:
             result = {
                 "status": "error",
                 "title": "Ошибка валидации",
                 "message": str(exc),
             }
+            audit_meta = {"payload": {"form": form_values.get(action_key, {}), "error": "validation"}}
         except WebAPIConfigurationError as exc:
             result = {
                 "status": "error",
                 "title": "Web API недоступно",
                 "message": str(exc),
             }
+            audit_meta = {"payload": {"form": form_values.get(action_key, {}), "error": "webapi_configuration"}}
         except WebAPIRequestError as exc:
             detail = str(exc)
             if exc.status_code:
@@ -520,6 +618,13 @@ async def admin_actions_submit(
                 "title": "Web API ответило ошибкой",
                 "message": detail,
             }
+            audit_meta = {
+                "payload": {
+                    "form": form_values.get(action_key, {}),
+                    "error": "webapi_response",
+                    "response": getattr(exc, "payload", None),
+                }
+            }
         except Exception as exc:  # pragma: no cover - защита от непредвиденных ошибок
             logger.exception("Не удалось выполнить действие %s", action_key)
             result = {
@@ -527,20 +632,58 @@ async def admin_actions_submit(
                 "title": "Непредвиденная ошибка",
                 "message": f"Запрос не выполнен: {exc}",
             }
+            audit_meta = {
+                "payload": {
+                    "form": form_values.get(action_key, {}),
+                    "error": "unexpected_exception",
+                }
+            }
+        else:
+            audit_meta = result.pop("_audit", None)
 
-    return templates.TemplateResponse(
+    if action_meta and action_key:
+        log_payload = None
+        target_type = None
+        target_id = None
+        if audit_meta:
+            target_type = audit_meta.get("target_type") or None
+            target_id = audit_meta.get("target_id") or None
+            log_payload = audit_meta.get("payload")
+        if log_payload is None:
+            log_payload = form_values.get(action_key)
+        if log_payload is not None and not isinstance(log_payload, dict):
+            log_payload = {"value": str(log_payload)}
+
+        await log_admin_action(
+            admin_id=current_admin.id,
+            action=action_key,
+            status=result.get("status", "error"),
+            message=result.get("message"),
+            target_type=target_type,
+            target_id=target_id,
+            payload=log_payload if isinstance(log_payload, dict) else None,
+            request=request,
+        )
+
+    context: Dict[str, Any] = {
+        "request": request,
+        "admin": current_admin,
+        "actions": ADMIN_ACTIONS,
+        "result": result,
+        "api_configured": api_configured,
+        "permissions": sorted(permissions),
+        "allowed_actions": allowed_actions,
+        "form_values": form_values,
+        "submitted_action": action_key if action_meta else None,
+        "csrf_token": "",
+    }
+    response = templates.TemplateResponse(
         "actions.html",
-        {
-            "request": request,
-            "admin": current_admin,
-            "actions": ADMIN_ACTIONS,
-            "result": result,
-            "api_configured": api_configured,
-            "form_values": form_values,
-            "submitted_action": action_key if action_meta else None,
-        },
+        context,
         status_code=status.HTTP_200_OK,
     )
+    context["csrf_token"] = issue_csrf(response)
+    return response
 
 
 @app.get("/health", tags=["monitoring"])
