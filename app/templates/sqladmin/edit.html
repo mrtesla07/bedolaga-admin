@@ -21,6 +21,11 @@
               {% for error in field.errors %}
               <div class="invalid-feedback">{{ error }}</div>
               {% endfor %}
+              {% set hint_key = 'form.help.' ~ field.name %}
+              {% set hint_value = translate(hint_key, locale=get_locale(request)) %}
+              {% if hint_value != hint_key %}
+              <div class="form-text text-muted">{{ hint_value }}</div>
+              {% endif %}
             </div>
           </div>
           {% endfor %}

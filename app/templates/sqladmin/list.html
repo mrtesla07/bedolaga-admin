@@ -71,6 +71,7 @@
         {% endif %}
       </div>
     </div>
+    {% if pagination.count %}
     <div class="table-responsive">
       <table class="table card-table table-vcenter text-nowrap">
         <thead>
@@ -179,6 +180,39 @@
         </div>
       </div>
     </div>
+    {% else %}
+    {% set filters = namespace(active=False) %}
+    {% for key, value in request.query_params.multi_items() %}
+      {% if key not in ['page', 'pageSize', 'sort', 'sortBy'] and value %}
+        {% set filters.active = True %}
+      {% endif %}
+    {% endfor %}
+    <div class="card-body text-center py-5">
+      <div class="mb-3">
+        <span class="avatar avatar-xl bg-primary-lt text-primary">
+          <i class="fa-solid fa-inbox fa-lg"></i>
+        </span>
+      </div>
+      <h4 class="mb-2">{{ tr('list.empty.title') }}</h4>
+      {% if filters.active %}
+      <p class="text-muted mb-4">{{ tr('list.empty.filtered') }}</p>
+      {% else %}
+      <p class="text-muted mb-4">{{ tr('list.empty.description') }}</p>
+      {% endif %}
+      <div class="d-inline-flex gap-2 flex-wrap justify-content-center">
+        {% if filters.active %}
+        <a href="{{ url_for('admin:list', identity=model_view.identity) }}" class="btn btn-outline-secondary">
+          {{ tr('list.empty.reset') }}
+        </a>
+        {% endif %}
+        {% if model_view.can_create %}
+        <a href="{{ url_for('admin:create', identity=model_view.identity) }}" class="btn btn-primary">
+          {{ tr('list.empty.cta') }}
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
   {% if model_view.can_delete %}
   {% include 'sqladmin/modals/delete.html' %}
