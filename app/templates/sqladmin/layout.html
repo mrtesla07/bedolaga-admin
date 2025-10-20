@@ -23,8 +23,12 @@
     <nav>
       <ul class="sqladmin-nav">
         {{ display_menu(admin._menu, request) }}
-        <li><a href="{{ url_for('admin:index') }}">{{ tr('nav.overview') }}</a></li>
-        <li><a href="/admin/actions">{{ tr('nav.actions') }}</a></li>
+        <li class="{% if request.url.path.startswith('/admin/overview') %}active{% endif %}">
+          <a href="{{ url_for('admin:overview') }}">{{ tr('nav.overview') }}</a>
+        </li>
+        <li class="{% if request.url.path.startswith('/admin/actions') %}active{% endif %}">
+          <a href="/admin/actions">{{ tr('nav.actions') }}</a>
+        </li>
       </ul>
     </nav>
 

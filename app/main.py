@@ -32,6 +32,7 @@ from app.models import AdminSecuritySettings, AdminUser, Subscription, UserStatu
 from app.services.audit import log_admin_action
 from app.services.rate_limiter import RateLimitExceeded, RateLimiter
 from app.services.roles import ensure_default_roles
+from app.services.overview import get_overview_metrics
 from app.i18n import translate, get_locale
 from app.middlewares import LocaleMiddleware
 from app.services.webapi import (
@@ -443,6 +444,32 @@ def _build_allowed_actions(permissions: set[str]) -> dict[str, bool]:
         required = action.get("permission")
         allowed[action["key"]] = required is None or required in permissions
     return allowed
+
+
+async def get_current_admin(request: Request) -> AdminUser:
+    """Dependency enforcing авторизацию администратора."""
+    user = getattr(request.state, "admin_user", None)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return user
+
+
+@app.get("/admin/overview", name="admin:overview")
+async def admin_overview(
+    request: Request,
+    current_admin: AdminUser = Depends(get_current_admin),
+) -> Any:
+    """Обзорная страница админки с основными метриками."""
+    locale = get_locale(request)
+    metrics = await get_overview_metrics()
+    context: Dict[str, Any] = {
+        "request": request,
+        "admin": current_admin,
+        "title": translate("overview.title", locale=locale),
+        "subtitle": translate("overview.subtitle", locale=locale),
+        "metrics": metrics,
+    }
+    return templates.TemplateResponse("overview.html", context, status_code=status.HTTP_200_OK)
 
 
 async def admin_actions_submit(

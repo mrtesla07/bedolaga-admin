@@ -1,0 +1,214 @@
+{% extends "sqladmin/layout.html" %}
+{% from 'i18n/macros.html' import tr, trf %}
+
+{% block content_body %}
+{% set locale = get_locale(request) %}
+<div class="container-xxl py-2">
+  <div class="row row-cards mb-3">
+    <div class="col-sm-6 col-xl-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.users.total') }}</div>
+          <div class="display-6 fw-bold">{{ metrics.users.total }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-success">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.users.active') }}</div>
+          <div class="display-6 fw-bold text-success">{{ metrics.users.active }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-warning">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.users.blocked') }}</div>
+          <div class="display-6 fw-bold text-warning">{{ metrics.users.blocked }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-primary">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.users.new_24h') }}</div>
+          <div class="display-6 fw-bold text-primary">{{ metrics.users.new_24h }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-cards mb-3">
+    <div class="col-sm-6 col-xl-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.users.balance') }}</div>
+          <div class="display-6 fw-bold">₽ {{ '%.2f' % metrics.users.balance_rub }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.subscriptions.total') }}</div>
+          <div class="display-6 fw-bold">{{ metrics.subscriptions.total }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-success">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.subscriptions.active') }}</div>
+          <div class="display-6 fw-bold text-success">{{ metrics.subscriptions.active }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-info">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.subscriptions.trial') }}</div>
+          <div class="display-6 fw-bold text-info">{{ metrics.subscriptions.trial }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-cards mb-3">
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-warning">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.subscriptions.expiring') }}</div>
+          <div class="display-6 fw-bold text-warning">{{ metrics.subscriptions.expiring_7d }}</div>
+          <div class="text-muted small">{{ tr('overview.subscriptions.expiring_hint') }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-secondary">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.subscriptions.disabled') }}</div>
+          <div class="display-6 fw-bold text-muted">{{ metrics.subscriptions.disabled }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-success">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.subscriptions.autopay') }}</div>
+          <div class="display-6 fw-bold text-success">{{ metrics.subscriptions.autopay }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-primary">
+        <div class="card-body">
+          <div class="text-uppercase text-muted fw-semibold small">{{ tr('overview.transactions.amount') }}</div>
+          <div class="display-6 fw-bold text-primary">₽ {{ '%.2f' % metrics.transactions.amount_rub }}</div>
+          <div class="text-muted small">{{ trf('overview.transactions.count', count=metrics.transactions.count) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-cards">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ tr('overview.transactions.methods_title') }}</h3>
+        </div>
+        <div class="card-body">
+          {% if metrics.transactions.payments_by_method %}
+            <div class="table-responsive">
+              <table class="table table-sm table-borderless align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ tr('overview.transactions.method_column') }}</th>
+                    <th class="text-end">{{ tr('overview.transactions.amount_column') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in metrics.transactions.payments_by_method %}
+                  {% set method_key = 'overview.payment_method.' + item.method %}
+                  <tr>
+                    <td>{{ translate(method_key, locale=locale) }}</td>
+                    <td class="text-end">₽ {{ '%.2f' % item.amount_rub }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-muted mb-0">{{ tr('overview.transactions.methods_empty') }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ tr('overview.charts.revenue') }}</h3>
+        </div>
+        <div class="card-body">
+          {% if metrics.charts.revenue %}
+            <div class="table-responsive">
+              <table class="table table-sm table-borderless align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ tr('overview.charts.date_column') }}</th>
+                    <th class="text-end">{{ tr('overview.charts.amount_column') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for point in metrics.charts.revenue %}
+                  <tr>
+                    <td>{{ point.date }}</td>
+                    <td class="text-end">₽ {{ '%.2f' % point.amount_rub }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-muted mb-0">{{ tr('overview.charts.empty') }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-3">
+    <div class="card-header">
+      <h3 class="card-title">{{ tr('overview.charts.new_users') }}</h3>
+    </div>
+    <div class="card-body">
+      {% if metrics.charts.new_users %}
+        <div class="table-responsive">
+          <table class="table table-sm table-borderless align-middle mb-0">
+            <thead>
+              <tr>
+                <th>{{ tr('overview.charts.date_column') }}</th>
+                <th class="text-end">{{ tr('overview.charts.users_column') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for point in metrics.charts.new_users %}
+              <tr>
+                <td>{{ point.date }}</td>
+                <td class="text-end">{{ point.count }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">{{ tr('overview.charts.empty') }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <p class="text-muted fst-italic small mt-3 mb-0">
+    {{ trf('overview.updated_at', timestamp=metrics.generated_at.strftime('%d.%m.%Y %H:%M:%S')) }}
+  </p>
+</div>
+{% endblock %}
